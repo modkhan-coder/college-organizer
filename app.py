@@ -24,11 +24,36 @@ DATA_FILE = "college_organizer_data.json"  # used only in local fallback mode
 
 
 def _supabase_cfg() -> Dict[str, str]:
+    """
+    Supports BOTH secrets formats:
+
+    A) Nested:
+      [supabase]
+      url = "..."
+      anon_key = "..."
+      table = "user_data"
+
+    B) Flat:
+      SUPABASE_URL = "..."
+      SUPABASE_ANON_KEY = "..."
+      SUPABASE_TABLE = "user_data"
+    """
     try:
         s = st.secrets.get("supabase", {})
-        return {"url": str(s.get("url", "")).strip(), "anon_key": str(s.get("anon_key", "")).strip()}
+        if isinstance(s, dict) and (s.get("url") or s.get("anon_key") or s.get("table")):
+            return {
+                "url": str(s.get("url", "")).strip(),
+                "anon_key": str(s.get("anon_key", "")).strip(),
+                "table": str(s.get("table", "user_data")).strip() or "user_data",
+            }
+
+        return {
+            "url": str(st.secrets.get("SUPABASE_URL", "")).strip(),
+            "anon_key": str(st.secrets.get("SUPABASE_ANON_KEY", "")).strip(),
+            "table": str(st.secrets.get("SUPABASE_TABLE", "user_data")).strip() or "user_data",
+        }
     except Exception:
-        return {"url": "", "anon_key": ""}
+        return {"url": "", "anon_key": "", "table": "user_data"}
 
 
 def supabase_enabled() -> bool:
@@ -37,110 +62,47 @@ def supabase_enabled() -> bool:
 
 
 def _sb():
+    """
+    Supabase client stored per Streamlit session (important: don't global-cache it).
+    """
     cfg = _supabase_cfg()
-    return create_client(cfg["url"], cfg["anon_key"])
+    if not cfg["url"] or not cfg["anon_key"]:
+        return None
+
+    prev = st.session_state.get("_sb_client_meta")
+    if not prev or prev.get("url") != cfg["url"] or prev.get("anon_key") != cfg["anon_key"]:
+        st.session_state["_sb_client"] = create_client(cfg["url"], cfg["anon_key"])
+        st.session_state["_sb_client_meta"] = {"url": cfg["url"], "anon_key": cfg["anon_key"]}
+
+    return st.session_state.get("_sb_client")
 
 
 def _sb_authed():
     sb = _sb()
-    sess = st.session_state.get("sb_session")
-    if sess and isinstance(sess, dict):
-        at = sess.get("access_token")
-        rt = sess.get("refresh_token")
-        if at and rt:
-            try:
-                sb.auth.set_session(at, rt)
-            except Exception:
-                # if set_session isn't available in some versions, login will still work on next attempt
-                pass
+    if sb is None:
+        return None
+
+    sess = st.session_state.get("sb_session") or {}
+    at = sess.get("access_token")
+    rt = sess.get("refresh_token")
+    if at and rt:
+        try:
+            sb.auth.set_session(at, rt)
+        except Exception:
+            # Some versions may not support set_session; still ok
+            pass
+
     return sb
 
 
-def auth_sidebar() -> None:
-    """
-    Sidebar login/signup using Supabase email+password.
-    Stores session in st.session_state.sb_session, and user id/email in session_state.
-    """
-    st.sidebar.header("Account")
-
-    if not supabase_enabled():
-        st.sidebar.info("Supabase not configured. App is running in local (non multi-user) mode.")
-        return
-
-    # If already logged in
-    if st.session_state.get("current_user_id") and st.session_state.get("current_user_email"):
-        st.sidebar.success(f"Signed in as: {st.session_state.current_user_email}")
-        if st.sidebar.button("Sign out"):
-            try:
-                sb = _sb_authed()
-                sb.auth.sign_out()
-            except Exception:
-                pass
-            st.session_state.current_user_id = None
-            st.session_state.current_user_email = None
-            st.session_state.sb_session = None
-            st.rerun()
-        return
-
-    mode = st.sidebar.radio("Choose:", ["Log in", "Sign up"], key="auth_mode")
-
-    email = st.sidebar.text_input("Email", key="auth_email").strip()
-    password = st.sidebar.text_input("Password", type="password", key="auth_password")
-
-    if mode == "Log in":
-        if st.sidebar.button("Log in", type="primary"):
-            if not email or not password:
-                st.sidebar.error("Enter email and password.")
-                return
-            try:
-                sb = _sb()
-                res = sb.auth.sign_in_with_password({"email": email, "password": password})
-                # res.session should contain access_token/refresh_token
-                sess = getattr(res, "session", None) or {}
-                user = getattr(res, "user", None)
-                if not user:
-                    # some versions store user under session.user
-                    user = getattr(sess, "user", None) if sess else None
-
-                # Normalize session storage
-                if sess:
-                    try:
-                        st.session_state.sb_session = {
-                            "access_token": getattr(sess, "access_token", None) or sess.get("access_token"),
-                            "refresh_token": getattr(sess, "refresh_token", None) or sess.get("refresh_token"),
-                        }
-                    except Exception:
-                        st.session_state.sb_session = None
-
-                # Normalize user storage
-                user_id = getattr(user, "id", None) if user else None
-                user_email = getattr(user, "email", None) if user else None
-                if not user_id or not user_email:
-                    st.sidebar.error("Login failed (no user returned).")
-                    return
-
-                st.session_state.current_user_id = str(user_id)
-                st.session_state.current_user_email = str(user_email)
-                st.rerun()
-            except Exception as e:
-                st.sidebar.error(f"Login failed: {e}")
-
-    else:  # Sign up
-        st.sidebar.caption("Create an account. You may need to confirm your email depending on your Supabase settings.")
-        if st.sidebar.button("Create account", type="primary"):
-            if not email or not password:
-                st.sidebar.error("Enter email and password.")
-                return
-            try:
-                sb = _sb()
-                res = sb.auth.sign_up({"email": email, "password": password})
-                user = getattr(res, "user", None)
-                if user:
-                    st.sidebar.success("Account created. Now log in.")
-                else:
-                    st.sidebar.success("Account created. Check your email if confirmation is required, then log in.")
-            except Exception as e:
-                st.sidebar.error(f"Sign up failed: {e}")
+def _jsonable(x: Any) -> Any:
+    if isinstance(x, (datetime.datetime, datetime.date)):
+        return x.isoformat()
+    if isinstance(x, dict):
+        return {str(k): _jsonable(v) for k, v in x.items()}
+    if isinstance(x, list):
+        return [_jsonable(v) for v in x]
+    return x
 
 
 # -------------------------------
@@ -649,56 +611,44 @@ def ensure_user_schema(user_data: Dict[str, Any], username: str) -> Dict[str, An
 # -------------------------------
 
 def init_app_state():
-    if "storage_mode" not in st.session_state:
-        st.session_state.storage_mode = "supabase" if supabase_enabled() else "local"
+    desired = "supabase" if supabase_enabled() else "local"
+    if st.session_state.get("storage_mode") != desired:
+        st.session_state.storage_mode = desired
 
-    # local mode data
     if st.session_state.storage_mode == "local":
-        if "app_data" not in st.session_state:
-            st.session_state.app_data = load_data()
+        st.session_state.setdefault("app_data", load_data())
 
-    # current user (uuid in supabase mode; name in local mode)
-    if "current_user" not in st.session_state:
-        st.session_state.current_user = None
-    if "current_username" not in st.session_state:
-        st.session_state.current_username = None
+    st.session_state.setdefault("current_user", None)        # uuid in supabase mode; name in local
+    st.session_state.setdefault("current_username", None)    # email in supabase mode; name in local
+    st.session_state.setdefault("sb_session", None)          # {"access_token":..., "refresh_token":...}
 
 
 def get_user_data(username: str) -> Dict[str, Any]:
     # Supabase mode (real multi-user)
     if st.session_state.get("storage_mode") == "supabase" and supabase_enabled():
-        sb = get_supabase()
+        sb = _sb_authed()
         if sb is None:
             return ensure_user_schema({}, username)
-
-        _ensure_supabase_auth_loaded()
 
         user_id = st.session_state.get("current_user")
         if not user_id:
             return ensure_user_schema({}, username)
 
-        try:
-            resp = (
-                sb.table(SUPABASE_TABLE)
-                .select("data")
-                .eq("user_id", user_id)
-                .execute()
-            )
+        table = _supabase_cfg().get("table", "user_data")
 
-            # resp.data is typically a list of rows
+        try:
+            resp = sb.table(table).select("data").eq("user_id", user_id).execute()
             rows = getattr(resp, "data", None)
-            if isinstance(rows, list) and len(rows) > 0 and isinstance(rows[0], dict):
+            if isinstance(rows, list) and rows and isinstance(rows[0], dict):
                 data = rows[0].get("data") or {}
             else:
                 data = {}
-
             return ensure_user_schema(data, username)
-
         except Exception as e:
             st.error(f"Supabase load failed: {e}")
             return ensure_user_schema({}, username)
 
-    # Local JSON mode (your existing behavior)
+    # Local JSON mode
     users = st.session_state.app_data.setdefault("users", {})
     user_data = users.setdefault(username, {})
     user_data = ensure_user_schema(user_data, username)
@@ -709,24 +659,24 @@ def get_user_data(username: str) -> Dict[str, Any]:
 def save_user_data(username: str, user_data: Dict[str, Any]) -> None:
     # Supabase mode (real multi-user)
     if st.session_state.get("storage_mode") == "supabase" and supabase_enabled():
-        sb = get_supabase()
+        sb = _sb_authed()
         if sb is None:
             return
-
-        _ensure_supabase_auth_loaded()
 
         user_id = st.session_state.get("current_user")
         if not user_id:
             return
 
+        table = _supabase_cfg().get("table", "user_data")
+
         payload = {
             "user_id": user_id,
             "data": _jsonable(user_data),
-            "updated_at": datetime.datetime.utcnow().isoformat(),
+            "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
 
         try:
-            sb.table(SUPABASE_TABLE).upsert(payload, on_conflict="user_id").execute()
+            sb.table(table).upsert(payload, on_conflict="user_id").execute()
         except Exception as e:
             st.error(f"Supabase save failed: {e}")
         return
@@ -1100,92 +1050,78 @@ def filter_items(
 # -------------------------------
 
 def user_selector():
-    st.sidebar.header("Account")
-
-    # Supabase auth mode
+    # Supabase mode (real multi-user)
     if st.session_state.get("storage_mode") == "supabase" and supabase_enabled():
-        sb = get_supabase()
+        st.sidebar.header("Account")
+
+        sb = _sb_authed()
         if sb is None:
-            st.sidebar.error("Supabase client not available. Check installation and secrets.")
+            st.sidebar.error("Supabase client not available. Check secrets and requirements.txt.")
             return
 
-        _ensure_supabase_auth_loaded()
-
-        # Try to detect if already signed in
-        signed_in_user = None
-        try:
-            sess_resp = sb.auth.get_session()
-            sess = _extract_session(sess_resp)
-            if sess is not None:
-                signed_in_user = getattr(sess, "user", None)
-        except Exception:
-            signed_in_user = None
-
-        if signed_in_user is not None:
-            uid = getattr(signed_in_user, "id", None)
-            email = getattr(signed_in_user, "email", None) or "signed-in user"
-
-            if uid:
-                st.session_state.current_user = str(uid)
-            st.session_state.current_username = str(email)
-
-            st.sidebar.success(f"Signed in as: {email}")
-
+        # If we already have user info in session, show it
+        if st.session_state.get("current_user") and st.session_state.get("current_username"):
+            st.sidebar.success(f"Signed in as: {st.session_state.current_username}")
             if st.sidebar.button("Sign out", key="sb_signout"):
                 try:
                     sb.auth.sign_out()
                 except Exception:
                     pass
-
-                for k in [
-                    "sb_access_token", "sb_refresh_token",
-                    "current_user", "current_username",
-                ]:
+                for k in ["current_user", "current_username", "sb_session", "_sb_client", "_sb_client_meta"]:
                     st.session_state.pop(k, None)
                 st.rerun()
-
             return
 
-        st.sidebar.caption("Sign in to use your private data (real multi-user).")
-        tabs = st.sidebar.tabs(["Log in", "Create account"])
+        mode = st.sidebar.radio("Choose:", ["Log in", "Sign up"], key="sb_mode")
+        email = st.sidebar.text_input("Email", key="sb_email").strip()
+        password = st.sidebar.text_input("Password", type="password", key="sb_password")
 
-        with tabs[0]:
-            with st.form("sb_login_form"):
-                email = st.text_input("Email", key="sb_login_email")
-                password = st.text_input("Password", type="password", key="sb_login_password")
-                submitted = st.form_submit_button("Log in")
+        def _get_attr(obj, name, default=None):
+            if isinstance(obj, dict):
+                return obj.get(name, default)
+            return getattr(obj, name, default)
 
-            if submitted:
+        if mode == "Log in":
+            if st.sidebar.button("Log in", type="primary", key="sb_login_btn"):
+                if not email or not password:
+                    st.sidebar.error("Enter email and password.")
+                    return
                 try:
-                    resp = sb.auth.sign_in_with_password({"email": email, "password": password})
-                    sess = _extract_session(resp)
-                    user = _extract_user(resp) or (getattr(sess, "user", None) if sess else None)
-                    if sess is None or user is None:
+                    sb0 = _sb()
+                    res = sb0.auth.sign_in_with_password({"email": email, "password": password})
+
+                    sess = _get_attr(res, "session", None)
+                    user = _get_attr(res, "user", None) or _get_attr(sess, "user", None)
+
+                    access = _get_attr(sess, "access_token", None)
+                    refresh = _get_attr(sess, "refresh_token", None)
+
+                    uid = _get_attr(user, "id", None)
+                    uemail = _get_attr(user, "email", None)
+
+                    if not (uid and uemail and access and refresh):
                         st.sidebar.error("Login failed. Double-check email/password.")
-                    else:
-                        _store_auth_session(sess)
-                        st.rerun()
+                        return
+
+                    st.session_state.sb_session = {"access_token": str(access), "refresh_token": str(refresh)}
+                    st.session_state.current_user = str(uid)
+                    st.session_state.current_username = str(uemail)
+                    st.rerun()
                 except Exception as e:
-                    st.sidebar.error(f"Login error: {e}")
+                    st.sidebar.error(f"Login failed: {e}")
 
-        with tabs[1]:
-            with st.form("sb_signup_form"):
-                email = st.text_input("Email", key="sb_signup_email")
-                password = st.text_input("Password", type="password", key="sb_signup_password")
-                submitted = st.form_submit_button("Create account")
-
-            if submitted:
+        else:
+            st.sidebar.caption("You may need to confirm your email depending on Supabase Auth settings.")
+            if st.sidebar.button("Create account", type="primary", key="sb_signup_btn"):
+                if not email or not password:
+                    st.sidebar.error("Enter email and password.")
+                    return
                 try:
-                    resp = sb.auth.sign_up({"email": email, "password": password})
-                    sess = _extract_session(resp)
-                    if sess:
-                        _store_auth_session(sess)
-                        st.sidebar.success("Account created and signed in.")
-                        st.rerun()
-                    else:
-                        st.sidebar.success("Account created. Check your email to confirm, then log in.")
+                    sb0 = _sb()
+                    _ = sb0.auth.sign_up({"email": email, "password": password})
+                    st.sidebar.success("Account created. Now log in (and confirm email if required).")
                 except Exception as e:
-                    st.sidebar.error(f"Signup error: {e}")
+                    st.sidebar.error(f"Sign up failed: {e}")
 
         return
 
@@ -2632,4 +2568,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
