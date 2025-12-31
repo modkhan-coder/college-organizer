@@ -145,6 +145,18 @@ def _clean_nan(x: Any) -> Any:
     return x
 
 
+def _is_pro(user_data: Dict[str, Any]) -> bool:
+    return (user_data.get("billing", {}) or {}).get("plan") == "pro"
+
+
+def _limit(user_data: Dict[str, Any], key: str, default: int) -> int:
+    b = user_data.get("billing", {}) or {}
+    lim = (b.get("limits", {}) or {}).get(key, default)
+    try:
+        return int(lim)
+    except Exception:
+        return int(default)
+
 # -------------------------------
 # Letter scale parsing
 # -------------------------------
@@ -515,6 +527,9 @@ def ensure_user_schema(user_data: Dict[str, Any], username: str) -> Dict[str, An
     if not isinstance(user_data["settings"], dict):
         user_data["settings"] = {}
 
+    # ✅ add this line
+    _ensure_billing_defaults(user_data)
+
     # default GPA system (editable later in Settings)
     user_data["settings"].setdefault("gpa_system", _default_gpa_system("4.0"))
 
@@ -609,6 +624,33 @@ def ensure_user_schema(user_data: Dict[str, Any], username: str) -> Dict[str, An
 # -------------------------------
 # User data helpers
 # -------------------------------
+def _ensure_billing_defaults(user_data: Dict[str, Any]) -> None:
+    """
+    Simple plan fields for freemium.
+    NOTE: This is fine for now, but later (real payments) you should NOT let users set plan themselves.
+    """
+    user_data.setdefault("billing", {})
+    b = user_data["billing"]
+    if not isinstance(b, dict):
+        user_data["billing"] = {}
+        b = user_data["billing"]
+
+    b.setdefault("plan", "free")  # "free" or "pro"
+    b.setdefault("created_at", datetime.datetime.utcnow().isoformat())
+    b.setdefault("trial_ends_at", None)
+
+    # optional placeholders for later Stripe integration
+    b.setdefault("stripe_customer_id", None)
+    b.setdefault("stripe_subscription_id", None)
+
+    # optional free-plan limits (edit these any time)
+    b.setdefault("limits", {
+        "max_courses": 6,
+        "max_assignments": 200,
+        "max_tasks": 300,
+    })
+
+
 
 def init_app_state():
     desired = "supabase" if supabase_enabled() else "local"
@@ -685,6 +727,43 @@ def save_user_data(username: str, user_data: Dict[str, Any]) -> None:
     st.session_state.app_data.setdefault("users", {})
     st.session_state.app_data["users"][username] = user_data
     save_data(st.session_state.app_data)
+def _ensure_billing_defaults(user_data: Dict[str, Any]) -> None:
+    """
+    Billing fields live inside user_data["settings"] for now.
+    Later you can migrate to dedicated columns if you add Stripe/webhooks.
+    """
+    user_data.setdefault("settings", {})
+    s = user_data["settings"]
+    if not isinstance(s, dict):
+        user_data["settings"] = {}
+        s = user_data["settings"]
+
+    s.setdefault("plan", "free")                 # "free" or "pro"
+    s.setdefault("is_pro", False)                # bool
+    s.setdefault("waitlist_pro", False)          # bool
+    s.setdefault("waitlist_joined_at", None)     # iso timestamp or None
+
+
+def is_pro_user(user_data: Dict[str, Any]) -> bool:
+    s = user_data.get("settings") or {}
+    return bool(s.get("is_pro")) or str(s.get("plan", "free")).lower() == "pro"
+
+
+def set_pro_waitlist(user_data: Dict[str, Any], joined: bool) -> None:
+    user_data.setdefault("settings", {})
+    s = user_data["settings"]
+    if not isinstance(s, dict):
+        user_data["settings"] = {}
+        s = user_data["settings"]
+
+    joined = bool(joined)
+    s["waitlist_pro"] = joined
+
+    if joined:
+        if not s.get("waitlist_joined_at"):
+            s["waitlist_joined_at"] = datetime.datetime.utcnow().isoformat()
+    else:
+        s["waitlist_joined_at"] = None
 
 
 def get_courses_list(user_data: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -733,6 +812,12 @@ def task_exists_for_assignment(user_data: Dict[str, Any], assignment_id: str) ->
 
 
 def create_task_from_assignment(user_data: Dict[str, Any], assignment: Dict[str, Any], default_minutes: int = 30) -> None:
+        # Free plan: limit tasks
+    if not _is_pro(user_data):
+        max_tasks = _limit(user_data, "max_tasks", 150)
+        if len(user_data.get("tasks", [])) >= max_tasks:
+            st.error(f"Free plan limit reached ({max_tasks} tasks). Upgrade to add more.")
+            st.stop()
     cid = assignment.get("course_id")
     cid = str(cid).strip() if cid and str(cid).strip() else None
 
@@ -1461,6 +1546,13 @@ def courses_view(user_data: Dict[str, Any]):
             if not name.strip():
                 st.error("Course name is required.")
                 st.stop()
+                        # --- Free plan limit: max courses ---
+        if is_new and (not _is_pro(user_data)):
+            max_courses = _limit(user_data, "max_courses", 6)
+            if len(get_courses_list(user_data)) >= max_courses:
+                st.error(f"Free plan limit reached ({max_courses} courses). Upgrade to add more.")
+                st.stop()
+
 
             grading_scheme: Dict[str, float] = {}
             for _, row in categories_df.iterrows():
@@ -1611,6 +1703,12 @@ def assignments_view(user_data: Dict[str, Any]):
                 }
                 user_data["assignments"].append(assignment)
                 save_user_data(username, user_data)
+        if (not _is_pro(user_data)):
+            max_asg = _limit(user_data, "max_assignments", 80)
+            if len(user_data.get("assignments", [])) >= max_asg:
+                st.error(f"Free plan limit reached ({max_asg} assignments). Upgrade to add more.")
+                st.stop()
+
                 st.success(f"Assignment '{title.strip()}' saved.")
 
     st.write("---")
@@ -1927,11 +2025,18 @@ def planner_view(user_data: Dict[str, Any]):
                         step=5,
                         key=f"{K}_plan_minutes_{item['id']}",
                     )
-                    if st.button("Plan study time for this", key=f"{K}_plan_btn_{item['id']}"):
-                        create_task_from_assignment(user_data, assignment_obj, default_minutes=int(mins))
-                        save_user_data(username, user_data)
-                        st.success("Task created from assignment.")
-                        st.rerun()
+                if st.button("Plan study time for this", key=f"{K}_plan_btn_{item['id']}"):
+                    if not _is_pro(user_data):
+                          max_tasks = _limit(user_data, "max_tasks", 150)
+                          if len(user_data.get("tasks", [])) >= max_tasks:
+                           st.error(f"Free plan limit reached ({max_tasks} tasks). Upgrade to add more.")
+                           st.stop()
+
+                    create_task_from_assignment(user_data, assignment_obj, default_minutes=int(mins))
+                    save_user_data(username, user_data)
+                    st.success("Task created from assignment.")
+                    st.rerun()
+
                 elif assignment_obj:
                     st.caption("✅ Study time already planned.")
 
@@ -2063,22 +2168,65 @@ def import_csvs_into_user(
     tasks_df: Optional[pd.DataFrame],
     mode: str = "merge",
 ) -> Dict[str, Any]:
-    user_data.setdefault("courses", {})
-    user_data.setdefault("assignments", [])
-    user_data.setdefault("tasks", [])
+    """
+    Imports CSVs with Free-plan limits enforced.
+    - Prevents bypassing limits via CSV import
+    - Uses a deepcopy so a failed import doesn't partially modify data
+    """
+    import copy
 
+    working = copy.deepcopy(user_data or {})
+    working.setdefault("courses", {})
+    working.setdefault("assignments", [])
+    working.setdefault("tasks", [])
+
+    # ---- Free plan limits (customizable via billing.limits) ----
+    is_pro = _is_pro(working)
+    max_courses = _limit(working, "max_courses", 6)
+    max_assignments = _limit(working, "max_assignments", 500)
+    max_tasks = _limit(working, "max_tasks", 150)
+
+    def _stop(msg: str) -> None:
+        st.error(msg)
+        st.stop()
+
+    def _can_add_course(new_course_id: str) -> None:
+        if is_pro:
+            return
+        # If we're overwriting an existing course ID, it's not "adding"
+        if new_course_id in (working.get("courses") or {}):
+            return
+        if len(working.get("courses") or {}) >= max_courses:
+            _stop(f"Free plan limit reached ({max_courses} courses). Upgrade to import more courses.")
+
+    def _can_add_assignment() -> None:
+        if is_pro:
+            return
+        if len(working.get("assignments") or []) >= max_assignments:
+            _stop(f"Free plan limit reached ({max_assignments} assignments). Upgrade to import more assignments.")
+
+    def _can_add_task() -> None:
+        if is_pro:
+            return
+        if len(working.get("tasks") or []) >= max_tasks:
+            _stop(f"Free plan limit reached ({max_tasks} tasks). Upgrade to import more tasks.")
+
+    # ---- Replace mode behavior (same as before, but applied to working copy) ----
     if mode == "replace":
         if courses_df is not None:
-            user_data["courses"] = {}
+            working["courses"] = {}
         if assignments_df is not None:
-            user_data["assignments"] = []
+            working["assignments"] = []
         if tasks_df is not None:
-            user_data["tasks"] = []
+            working["tasks"] = []
 
+    # ---- Courses import (enforce course cap) ----
     if courses_df is not None and not courses_df.empty:
         for _, r in courses_df.iterrows():
             row = {k: (None if pd.isna(v) else v) for k, v in r.to_dict().items()}
             cid = str(row.get("course_id") or row.get("id") or "").strip() or generate_id("course")
+
+            _can_add_course(cid)
 
             grading_scheme = row.get("grading_scheme")
             if isinstance(grading_scheme, str) and grading_scheme.strip():
@@ -2087,7 +2235,7 @@ def import_csvs_into_user(
                 except Exception:
                     grading_scheme = None
 
-            user_data["courses"][cid] = {
+            working["courses"][cid] = {
                 "course_id": cid,
                 "name": str(row.get("name") or row.get("Course name") or row.get("course") or "Imported course").strip(),
                 "code": str(row.get("code") or row.get("course_code") or "IMPORTED").strip(),
@@ -2096,9 +2244,22 @@ def import_csvs_into_user(
                 "letter_scale": row.get("letter_scale") if isinstance(row.get("letter_scale"), list) else [],
             }
 
-    code_map = _course_code_map(user_data)
+    # ---- Course code map ----
+    def _course_code_map_local() -> Dict[str, str]:
+        m = {}
+        for cid, c in (working.get("courses") or {}).items():
+            code = str((c or {}).get("code", "")).strip().upper()
+            if code:
+                m[code] = str(cid)
+        return m
+
+    code_map = _course_code_map_local()
 
     def ensure_course_id(course_code: Optional[str]) -> Optional[str]:
+        """
+        Used when assignments/tasks mention a course_code but no course_id.
+        If course_code isn't found, create a stub course (subject to course cap).
+        """
         if not course_code:
             return None
         code = str(course_code).strip().upper()
@@ -2107,8 +2268,11 @@ def import_csvs_into_user(
         if code in code_map:
             return code_map[code]
 
+        # Would create a new course -> enforce cap
         new_id = generate_id("course")
-        user_data["courses"][new_id] = {
+        _can_add_course(new_id)
+
+        working["courses"][new_id] = {
             "course_id": new_id,
             "name": f"Imported {code}",
             "code": code,
@@ -2119,8 +2283,11 @@ def import_csvs_into_user(
         code_map[code] = new_id
         return new_id
 
+    # ---- Assignments import (enforce assignment cap + possible new courses) ----
     if assignments_df is not None and not assignments_df.empty:
         for _, r in assignments_df.iterrows():
+            _can_add_assignment()
+
             row = {k: (None if pd.isna(v) else v) for k, v in r.to_dict().items()}
             aid = str(row.get("id") or row.get("assignment_id") or "").strip() or generate_id("asg")
 
@@ -2141,7 +2308,7 @@ def import_csvs_into_user(
             if points_earned in (None, ""):
                 points_earned = None
 
-            user_data["assignments"].append({
+            working["assignments"].append({
                 "id": aid,
                 "course_id": cid,
                 "title": str(row.get("title") or "Untitled").strip(),
@@ -2152,8 +2319,11 @@ def import_csvs_into_user(
                 "is_completed": bool(row.get("is_completed") or (points_earned is not None)),
             })
 
+    # ---- Tasks import (enforce task cap + possible new courses) ----
     if tasks_df is not None and not tasks_df.empty:
         for _, r in tasks_df.iterrows():
+            _can_add_task()
+
             row = {k: (None if pd.isna(v) else v) for k, v in r.to_dict().items()}
             tid = str(row.get("id") or row.get("task_id") or "").strip() or generate_id("task")
 
@@ -2172,7 +2342,7 @@ def import_csvs_into_user(
             mins = row.get("minutes")
             done = row.get("done")
 
-            user_data["tasks"].append({
+            working["tasks"].append({
                 "id": tid,
                 "title": str(row.get("title") or "Task").strip(),
                 "course_id": cid,
@@ -2183,7 +2353,8 @@ def import_csvs_into_user(
                 "created_at": row.get("created_at") or datetime.datetime.now().isoformat(),
             })
 
-    return user_data
+    return working
+
 
 
 # -------------------------------
@@ -2218,6 +2389,26 @@ def settings_view(user_data: Dict[str, Any]):
         save_user_data(username, user_data)
 
     st.write("---")
+    st.subheader("Pro (early access)")
+
+    _ensure_billing_defaults(user_data)
+    s = user_data["settings"]
+
+    plan_label = "Pro" if is_pro_user(user_data) else "Free"
+    st.info(f"Current plan: **{plan_label}** (free during early access)")
+
+    prev_joined = bool(s.get("waitlist_pro", False))
+    joined = st.checkbox(
+        "Notify me when Pro launches",
+        value=prev_joined,
+        key=f"{K}_waitlist_pro",
+    )
+
+    if joined != prev_joined:
+        set_pro_waitlist(user_data, joined)
+        save_user_data(username, user_data)
+        st.success("Saved.")
+
 
     st.subheader("CSV Import / Export")
     csvs = export_user_csvs(user_data)
