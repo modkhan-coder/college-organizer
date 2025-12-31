@@ -526,6 +526,19 @@ def ensure_user_schema(user_data: Dict[str, Any], username: str) -> Dict[str, An
 
     if not isinstance(user_data["settings"], dict):
         user_data["settings"] = {}
+        # --- Billing / plan defaults (for paywall + limits) ---
+    user_data.setdefault("billing", {})
+    if not isinstance(user_data["billing"], dict):
+        user_data["billing"] = {}
+
+    user_data["billing"].setdefault("plan", "free")  # "free" or "pro"
+    user_data["billing"].setdefault("limits", {})
+
+    # Free plan defaults (you can change these numbers anytime)
+    user_data["billing"]["limits"].setdefault("max_courses", 6)
+    user_data["billing"]["limits"].setdefault("max_assignments", 200)
+    user_data["billing"]["limits"].setdefault("max_tasks", 200)
+    
 
     # ✅ add this line
     _ensure_billing_defaults(user_data)
@@ -2393,6 +2406,28 @@ def settings_view(user_data: Dict[str, Any]):
 
     _ensure_billing_defaults(user_data)
     s = user_data["settings"]
+    st.write("---")
+    st.subheader("Billing (admin / temporary)")
+
+    user_data.setdefault("billing", {"plan": "free", "limits": {}})
+    b = user_data["billing"]
+
+    current_plan = (b.get("plan") or "free").strip().lower()
+    chosen = st.radio(
+        "Plan",
+        ["free", "pro"],
+        index=0 if current_plan != "pro" else 1,
+        horizontal=True,
+        key=f"{K}_plan_choice",
+    )
+
+    if chosen != current_plan:
+        b["plan"] = chosen
+        user_data["billing"] = b
+        save_user_data(username, user_data)
+        st.success(f"Plan updated to: {chosen}")
+        st.rerun()
+
 
     plan_label = "Pro" if is_pro_user(user_data) else "Free"
     st.info(f"Current plan: **{plan_label}** (free during early access)")
@@ -2736,6 +2771,21 @@ def main():
     # In Supabase mode, current_user is UUID and current_username is email
     username = st.session_state.current_username or st.session_state.current_user
     user_data = get_user_data(username)
+        # --- Plan badge (Free/Pro) ---
+    with st.sidebar.expander("Plan", expanded=True):
+        plan = (user_data.get("billing", {}) or {}).get("plan", "free")
+        if plan == "pro":
+            st.success("✅ Pro plan")
+        else:
+            st.info("Free plan")
+
+        st.caption("Limits (current plan)")
+        st.write(f"- Max courses: {_limit(user_data, 'max_courses', 6)}")
+        st.write(f"- Max assignments: {_limit(user_data, 'max_assignments', 200)}")
+        st.write(f"- Max tasks: {_limit(user_data, 'max_tasks', 200)}")
+
+        st.markdown("**Upgrade**: add Stripe later, or for now you can switch plans in Settings.")
+
 
     maybe_show_notifications(user_data)
 
