@@ -523,27 +523,13 @@ def ensure_user_schema(user_data: Dict[str, Any], username: str) -> Dict[str, An
     user_data.setdefault("assignments", [])
     user_data.setdefault("tasks", [])
     user_data.setdefault("settings", {})
-
     if not isinstance(user_data["settings"], dict):
         user_data["settings"] = {}
-        # --- Billing / plan defaults (for paywall + limits) ---
-    user_data.setdefault("billing", {})
-    if not isinstance(user_data["billing"], dict):
-        user_data["billing"] = {}
 
-    user_data["billing"].setdefault("plan", "free")  # "free" or "pro"
-    user_data["billing"].setdefault("limits", {})
-
-    # Free plan defaults (you can change these numbers anytime)
-    user_data["billing"]["limits"].setdefault("max_courses", 6)
-    user_data["billing"]["limits"].setdefault("max_assignments", 200)
-    user_data["billing"]["limits"].setdefault("max_tasks", 200)
-    
-
-    # ✅ add this line
+    # Billing defaults
     _ensure_billing_defaults(user_data)
 
-    # default GPA system (editable later in Settings)
+    # Default GPA system
     user_data["settings"].setdefault("gpa_system", _default_gpa_system("4.0"))
 
     # courses list -> dict
@@ -609,11 +595,8 @@ def ensure_user_schema(user_data: Dict[str, Any], username: str) -> Dict[str, An
         t = dict(t)
         t.setdefault("id", generate_id("task"))
 
-        cid = t.get("course_id")
-        if cid is None or str(cid).strip() == "":
-            t["course_id"] = None
-        else:
-            t["course_id"] = str(cid).strip()
+        cid2 = t.get("course_id")
+        t["course_id"] = str(cid2).strip() if (cid2 is not None and str(cid2).strip()) else None
 
         t.setdefault("title", "Untitled task")
 
@@ -634,13 +617,13 @@ def ensure_user_schema(user_data: Dict[str, Any], username: str) -> Dict[str, An
     return user_data
 
 
+
 # -------------------------------
 # User data helpers
 # -------------------------------
 def _ensure_billing_defaults(user_data: Dict[str, Any]) -> None:
     """
-    Simple plan fields for freemium.
-    NOTE: This is fine for now, but later (real payments) you should NOT let users set plan themselves.
+    Billing lives in user_data["billing"].
     """
     user_data.setdefault("billing", {})
     b = user_data["billing"]
@@ -652,16 +635,20 @@ def _ensure_billing_defaults(user_data: Dict[str, Any]) -> None:
     b.setdefault("created_at", datetime.datetime.utcnow().isoformat())
     b.setdefault("trial_ends_at", None)
 
-    # optional placeholders for later Stripe integration
+    # placeholders for later Stripe integration
     b.setdefault("stripe_customer_id", None)
     b.setdefault("stripe_subscription_id", None)
 
-    # optional free-plan limits (edit these any time)
-    b.setdefault("limits", {
-        "max_courses": 6,
-        "max_assignments": 200,
-        "max_tasks": 300,
-    })
+    # free-plan limits (edit anytime)
+    b.setdefault("limits", {})
+    limits = b["limits"]
+    if not isinstance(limits, dict):
+        b["limits"] = {}
+        limits = b["limits"]
+
+    limits.setdefault("max_courses", 6)
+    limits.setdefault("max_assignments", 200)
+    limits.setdefault("max_tasks", 300)
 
 
 
@@ -758,8 +745,7 @@ def _ensure_billing_defaults(user_data: Dict[str, Any]) -> None:
 
 
 def is_pro_user(user_data: Dict[str, Any]) -> bool:
-    s = user_data.get("settings") or {}
-    return bool(s.get("is_pro")) or str(s.get("plan", "free")).lower() == "pro"
+    return _is_pro(user_data)
 
 
 def set_pro_waitlist(user_data: Dict[str, Any], joined: bool) -> None:
@@ -1555,61 +1541,63 @@ def courses_view(user_data: Dict[str, Any]):
     col_save, col_delete = st.columns([3, 1])
 
     with col_save:
-        if st.button("Save course", key=f"{K}_save_course_{course_id_for_keys}"):
-            if not name.strip():
-                st.error("Course name is required.")
-                st.stop()
-                        # --- Free plan limit: max courses ---
+     if st.button("Save course", key=f"{K}_save_course_{course_id_for_keys}"):
+
+        if not name.strip():
+            st.error("Course name is required.")
+            return
+
+        # Free plan limit ONLY when creating a new course
         if is_new and (not _is_pro(user_data)):
             max_courses = _limit(user_data, "max_courses", 6)
             if len(get_courses_list(user_data)) >= max_courses:
                 st.error(f"Free plan limit reached ({max_courses} courses). Upgrade to add more.")
-                st.stop()
+                return
 
-
-            grading_scheme: Dict[str, float] = {}
-            for _, row in categories_df.iterrows():
-                cat = str(row.get("Category", "")).strip()
-                try:
-                    w = float(row.get("Weight", 0) or 0)
-                except Exception:
-                    w = 0.0
-                if cat and w > 0:
-                    grading_scheme[cat] = w
-
-            if not grading_scheme:
-                st.error("Please enter at least one category with a positive weight.")
-                st.stop()
-
+        grading_scheme: Dict[str, float] = {}
+        for _, row in categories_df.iterrows():
+            cat = str(row.get("Category", "")).strip()
             try:
-                letter_scale = parse_letter_scale(letter_scale_text)
-            except ValueError as e:
-                st.error(str(e))
-                st.stop()
+                w = float(row.get("Weight", 0) or 0)
+            except Exception:
+                w = 0.0
+            if cat and w > 0:
+                grading_scheme[cat] = w
 
-            if is_new:
-                course_id = generate_id("course")
-                user_data["courses"][course_id] = {
-                    "course_id": course_id,
-                    "name": name.strip(),
-                    "code": code.strip(),
-                    "credits": float(credits),
-                    "grading_scheme": grading_scheme,
-                    "letter_scale": letter_scale,
-                }
-                st.success(f"Course '{name.strip()}' added.")
-            else:
-                cid = course["course_id"]
-                course["name"] = name.strip()
-                course["code"] = code.strip()
-                course["credits"] = float(credits)
-                course["grading_scheme"] = grading_scheme
-                course["letter_scale"] = letter_scale
-                user_data["courses"][cid] = course
-                st.success(f"Course '{name.strip()}' updated.")
+        if not grading_scheme:
+            st.error("Please enter at least one category with a positive weight.")
+            return
 
-            save_user_data(username, user_data)
-            st.rerun()
+        try:
+            letter_scale = parse_letter_scale(letter_scale_text)
+        except ValueError as e:
+            st.error(str(e))
+            return
+
+        if is_new:
+            course_id = generate_id("course")
+            user_data["courses"][course_id] = {
+                "course_id": course_id,
+                "name": name.strip(),
+                "code": code.strip(),
+                "credits": float(credits),
+                "grading_scheme": grading_scheme,
+                "letter_scale": letter_scale,
+            }
+            st.success(f"Course '{name.strip()}' added.")
+        else:
+            cid = course["course_id"]
+            course["name"] = name.strip()
+            course["code"] = code.strip()
+            course["credits"] = float(credits)
+            course["grading_scheme"] = grading_scheme
+            course["letter_scale"] = letter_scale
+            user_data["courses"][cid] = course
+            st.success(f"Course '{name.strip()}' updated.")
+
+        save_user_data(username, user_data)
+        st.rerun()
+
 
     with col_delete:
         if not is_new and course is not None:
@@ -1703,26 +1691,30 @@ def assignments_view(user_data: Dict[str, Any]):
         if submitted:
             if not title.strip():
                 st.error("Assignment title is required.")
-            else:
-                assignment = {
-                    "id": generate_id("asg"),
-                    "course_id": course_id,
-                    "title": title.strip(),
-                    "category": category,
-                    "due_date": due_date.isoformat(),
-                    "points_total": float(points_total) if points_total > 0 else None,
-                    "points_earned": float(points_earned) if graded and points_total > 0 else None,
-                    "is_completed": bool(graded),
-                }
-                user_data["assignments"].append(assignment)
-                save_user_data(username, user_data)
-        if (not _is_pro(user_data)):
-            max_asg = _limit(user_data, "max_assignments", 80)
-            if len(user_data.get("assignments", [])) >= max_asg:
-                st.error(f"Free plan limit reached ({max_asg} assignments). Upgrade to add more.")
-                st.stop()
+                return
 
-                st.success(f"Assignment '{title.strip()}' saved.")
+            # Free plan limit: assignments (only when adding)
+            if not _is_pro(user_data):
+                max_asg = _limit(user_data, "max_assignments", 200)
+                if len(user_data.get("assignments", [])) >= max_asg:
+                    st.error(f"Free plan limit reached ({max_asg} assignments). Upgrade to add more.")
+                    return
+
+            assignment = {
+                "id": generate_id("asg"),
+                "course_id": course_id,
+                "title": title.strip(),
+                "category": category,
+                "due_date": due_date.isoformat(),
+                "points_total": float(points_total) if points_total > 0 else None,
+                "points_earned": float(points_earned) if graded and points_total > 0 else None,
+                "is_completed": bool(graded),
+            }
+            user_data["assignments"].append(assignment)
+            save_user_data(username, user_data)
+            st.success(f"Assignment '{title.strip()}' saved.")
+            st.rerun()
+
 
     st.write("---")
     st.subheader(f"Assignments for {course.get('name','')}")
@@ -2029,7 +2021,12 @@ def planner_view(user_data: Dict[str, Any]):
                 st.markdown(f"- **{item['title']}** · {item['course_name']} · {item.get('category','')} · {status}")
 
                 assignment_obj = next((a for a in user_data.get("assignments", []) if a.get("id") == item["id"]), None)
-                if assignment_obj and not task_exists_for_assignment(user_data, assignment_obj["id"]):
+                if not assignment_obj:
+                    continue
+
+                if task_exists_for_assignment(user_data, assignment_obj["id"]):
+                    st.caption("✅ Study time already planned.")
+                else:
                     mins = st.number_input(
                         "Minutes",
                         min_value=5,
@@ -2038,20 +2035,21 @@ def planner_view(user_data: Dict[str, Any]):
                         step=5,
                         key=f"{K}_plan_minutes_{item['id']}",
                     )
-                if st.button("Plan study time for this", key=f"{K}_plan_btn_{item['id']}"):
-                    if not _is_pro(user_data):
-                          max_tasks = _limit(user_data, "max_tasks", 150)
-                          if len(user_data.get("tasks", [])) >= max_tasks:
-                           st.error(f"Free plan limit reached ({max_tasks} tasks). Upgrade to add more.")
-                           st.stop()
 
-                    create_task_from_assignment(user_data, assignment_obj, default_minutes=int(mins))
-                    save_user_data(username, user_data)
-                    st.success("Task created from assignment.")
-                    st.rerun()
+                    if st.button("Plan study time for this", key=f"{K}_plan_btn_{item['id']}"):
 
-                elif assignment_obj:
-                    st.caption("✅ Study time already planned.")
+                        # Free plan: tasks limit (only when creating)
+                        if not _is_pro(user_data):
+                            max_tasks = _limit(user_data, "max_tasks", 300)
+                            if len(user_data.get("tasks", [])) >= max_tasks:
+                                st.error(f"Free plan limit reached ({max_tasks} tasks). Upgrade to add more.")
+                                return
+
+                        create_task_from_assignment(user_data, assignment_obj, default_minutes=int(mins))
+                        save_user_data(username, user_data)
+                        st.success("Task created from assignment.")
+                        st.rerun()
+
 
 
 # -------------------------------
