@@ -139,7 +139,7 @@ const Auth = () => {
                                 onClick={() => setMode('signup')}
                                 style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontWeight: 'bold' }}
                             >
-                                Sign Up
+                                Create an Account
                             </button>
                         </>
                     ) : (
