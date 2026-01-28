@@ -113,7 +113,7 @@ const Auth = () => {
                         style={{ width: '100%', justifyContent: 'center' }}
                         disabled={loading}
                     >
-                        {loading ? 'Processing...' : (mode === 'login' ? 'Sign In' : 'Sign Up')}
+                        {loading ? 'Processing...' : (mode === 'login' ? 'Sign In' : 'Create Account')}
                     </button>
                 </form>
 
