@@ -1,0 +1,4 @@
+/* Basic resets if not covered by DesignSystem, but usually safer to have */
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+}

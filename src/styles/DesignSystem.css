@@ -1,0 +1,295 @@
+:root {
+  /* Color Palette - Vibrant & Clean */
+  --primary: #6366f1;
+  /* Indigo 500 */
+  --primary-hover: #4f46e5;
+  --secondary: #ec4899;
+  /* Pink 500 */
+  --accent: #14b8a6;
+  /* Teal 500 */
+
+  --bg-app: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-sidebar: #1e293b;
+
+  --text-main: #0f172a;
+  --text-secondary: #64748b;
+  --text-inverse: #f8fafc;
+
+  --border: #e2e8f0;
+
+  /* Status Colors */
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
+
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+}
+
+/* --- THEMES --- */
+
+/* Midnight Pro (Dark Mode) */
+:root[data-theme='midnight'] {
+  --primary: #818cf8;
+  /* Indigo 400 */
+  --primary-hover: #6366f1;
+  --secondary: #f472b6;
+  /* Pink 400 */
+  --accent: #2dd4bf;
+  /* Teal 400 */
+
+  --bg-app: #0f172a;
+  /* Slate 900 */
+  --bg-surface: #1e293b;
+  /* Slate 800 */
+  --bg-sidebar: #020617;
+  /* Slate 950 */
+
+  --text-main: #f8fafc;
+  /* Slate 50 */
+  --text-secondary: #94a3b8;
+  /* Slate 400 */
+  --text-inverse: #0f172a;
+
+  --border: #334155;
+  /* Slate 700 */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5);
+}
+
+/* Sunset Vibes */
+:root[data-theme='sunset'] {
+  --primary: #f43f5e;
+  /* Rose 500 */
+  --primary-hover: #e11d48;
+  --secondary: #fb923c;
+  /* Orange 400 */
+  --accent: #f59e0b;
+  /* Amber 500 */
+
+  --bg-app: #fff1f2;
+  /* Rose 50 */
+  --bg-surface: #ffffff;
+  --bg-sidebar: #881337;
+  /* Rose 900 */
+
+  --text-main: #4c0519;
+  /* Rose 950 */
+  --text-secondary: #9f1239;
+  /* Rose 800 */
+
+  --border: #fecdd3;
+  /* Rose 200 */
+}
+
+/* Ocean Breeze */
+:root[data-theme='ocean'] {
+  --primary: #0ea5e9;
+  /* Sky 500 */
+  --primary-hover: #0284c7;
+  --secondary: #22d3ee;
+  /* Cyan 400 */
+  --accent: #6366f1;
+  /* Indigo 500 */
+
+  --bg-app: #f0f9ff;
+  /* Sky 50 */
+  --bg-surface: #ffffff;
+  --bg-sidebar: #0c4a6e;
+  /* Sky 900 */
+
+  --text-main: #0c4a6e;
+  /* Sky 900 */
+  --text-secondary: #0369a1;
+  /* Sky 700 */
+
+  --border: #bae6fd;
+  /* Sky 200 */
+}
+
+/* Forest Focus */
+:root[data-theme='forest'] {
+  --primary: #22c55e;
+  /* Green 500 */
+  --primary-hover: #16a34a;
+  --secondary: #84cc16;
+  /* Lime 500 */
+  --accent: #14532d;
+  /* Green 900 */
+
+  --bg-app: #f0fdf4;
+  /* Green 50 */
+  --bg-surface: #ffffff;
+  --bg-sidebar: #14532d;
+  /* Green 900 */
+
+  --text-main: #14532d;
+  /* Green 900 */
+  --text-secondary: #15803d;
+  /* Green 700 */
+
+  --border: #bbf7d0;
+  /* Green 200 */
+
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Utilities */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  transition: all 0.2s;
+  border: none;
+  gap: 8px;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: white;
+  color: var(--text-main);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+  background: #f1f5f9;
+}
+
+.card {
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.input-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.input-field {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.input-field:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.page-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  margin-bottom: var(--space-lg);
+  color: var(--text-main);
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.1);
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.pulse {
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+/* Dashboard Interactive Elements */
+.stat-card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+.interactive-list-item:hover {
+  border-color: var(--primary);
+  transform: translateX(4px);
+  background-color: #f1f5f9;
+}
+
+.grade-item:hover {
+  background-color: var(--bg-app);
+  padding-left: 8px;
+  padding-right: 8px;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+}

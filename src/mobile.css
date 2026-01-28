@@ -1,0 +1,38 @@
+/* Mobile Polish */
+
+/* Prevent iOS text size adjust */
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+/* Remove tap highlight color on mobile */
+* {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* 
+  Prevent auto-zoom on iOS when focusing inputs 
+  (iOS zooms if font-size < 16px) 
+*/
+@media screen and (max-width: 768px) {
+
+    input,
+    select,
+    textarea,
+    button {
+        font-size: 16px !important;
+    }
+}
+
+/* Smoother scrolling on iOS */
+body {
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent text selection on clickable elements for native app feel */
+button,
+a,
+.clickable {
+    user-select: none;
+    -webkit-user-select: none;
+}

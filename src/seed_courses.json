@@ -1,0 +1,40 @@
+[
+    {
+        "id": "c1",
+        "name": "Intro to Computer Science",
+        "code": "CS 101",
+        "credits": 4,
+        "categories": [
+            {
+                "id": "cat1",
+                "name": "Homework",
+                "weight": 40
+            },
+            {
+                "id": "cat2",
+                "name": "Exams",
+                "weight": 60
+            }
+        ],
+        "color": "#6366f1"
+    },
+    {
+        "id": "c2",
+        "name": "Calculus I",
+        "code": "MATH 120",
+        "credits": 3,
+        "categories": [
+            {
+                "id": "cat3",
+                "name": "Quizzes",
+                "weight": 20
+            },
+            {
+                "id": "cat4",
+                "name": "Final",
+                "weight": 80
+            }
+        ],
+        "color": "#ec4899"
+    }
+]
