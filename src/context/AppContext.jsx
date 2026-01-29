@@ -56,17 +56,20 @@ export const AppProvider = ({ children }) => {
     free: {
       courses: 3,
       assignments: 20,
-      tasks: 50
+      tasks: 50,
+      ai: 0
     },
     pro: {
       courses: 9999,
       assignments: 9999,
-      tasks: 9999
+      tasks: 9999,
+      ai: 50
     },
     premium: {
       courses: 9999,
       assignments: 9999,
-      tasks: 9999
+      tasks: 9999,
+      ai: 50
     }
   };
 
@@ -85,6 +88,10 @@ export const AppProvider = ({ children }) => {
     if (transformType === 'courses' && courses.length >= limit) return false;
     if (transformType === 'assignments' && assignments.length >= limit) return false;
     if (transformType === 'tasks' && tasks.length >= limit) return false;
+    if (transformType === 'ai') {
+      const usage = userStats?.ai_usage_count || 0;
+      return usage < limit;
+    }
     return true;
   };
 
