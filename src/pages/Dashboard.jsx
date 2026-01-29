@@ -191,17 +191,14 @@ const Dashboard = () => {
                 <ProgressWidget userStats={userStats} tasksDoneToday={tasksDoneToday} dailyGoal={dailyGoal} setIsShareModalOpen={setIsShareModalOpen} />
             </div>
 
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={layout} strategy={rectSortingStrategy}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '24px' }}>
-                        {layout.map(id => (
-                            <SortableWidget key={id} id={id}>
-                                {renderWidget(id)}
-                            </SortableWidget>
-                        ))}
+            {/* Static Grid Layout (Drag Disabled) */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '24px' }}>
+                {layout.map(id => (
+                    <div key={id} style={{ height: '100%' }}>
+                        {renderWidget(id)}
                     </div>
-                </SortableContext>
-            </DndContext>
+                ))}
+            </div>
 
             {/* Share Modal */}
             <Modal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} title="Share Your Progress">
