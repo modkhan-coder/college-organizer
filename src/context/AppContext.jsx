@@ -150,22 +150,19 @@ export const AppProvider = ({ children }) => {
   const loadSupabaseData = async (currentUser) => {
     const userId = currentUser.id;
     setLoading(true);
+
     try {
-      // Promise.all for parallel fetching
-      const [profRes, courseRes, assignRes, taskRes, lmsRes, statsRes, notifRes, inviteRes, connRes, actRes, reqRes] = await Promise.all([
+      // --- TIER 1: CRITICAL DATA (Render Dashboard) ---
+      // We need Profile, Courses, Stats, Assignments, and Tasks to show the main UI.
+      const [profRes, courseRes, statsRes, assignRes, taskRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', userId).single(),
         supabase.from('courses').select('*').eq('user_id', userId),
-        supabase.from('assignments').select('*').eq('user_id', userId),
-        supabase.from('tasks').select('*').eq('user_id', userId),
-        supabase.from('lms_connections').select('*').eq('user_id', userId),
         supabase.from('user_stats').select('*').eq('user_id', userId).single(),
-        supabase.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('invites').select('*').eq('creator_id', userId).eq('is_active', true),
-        supabase.from('social_connections').select('*').or(`user_id.eq.${userId},target_user_id.eq.${userId}`),
-        supabase.from('study_activity').select('*, profiles(display_name, avatar_url)').order('created_at', { ascending: false }).limit(50),
-        supabase.from('friend_requests').select('*, profiles:sender_id(display_name, email, avatar_url)').eq('receiver_id', userId).eq('status', 'pending')
+        supabase.from('assignments').select('*').eq('user_id', userId),
+        supabase.from('tasks').select('*').eq('user_id', userId)
       ]);
 
+      // 1. User Stats & Profile
       let currentStats = statsRes.data;
       if (!currentStats && statsRes.error?.code === 'PGRST116') {
         const { data: newStats } = await supabase.from('user_stats').upsert({ user_id: userId }).select().single();
@@ -173,159 +170,106 @@ export const AppProvider = ({ children }) => {
       }
 
       if (currentStats) {
-        // --- One-time Sync: Catch up on historical completions ---
-        const completedTasksCount = (taskRes.data || []).filter(t => t.completed).length;
-        if (currentStats.total_tasks_completed === 0 && completedTasksCount > 0) {
-          const { data: syncedStats } = await supabase
-            .from('user_stats')
-            .update({ total_tasks_completed: completedTasksCount })
-            .eq('user_id', userId)
-            .select()
-            .single();
-          if (syncedStats) currentStats = syncedStats;
-        }
         setUserStats(currentStats);
         syncAchievements(currentStats);
       }
 
-      // Merge profile data into user state
       if (profRes.data) {
-        // Check if email needs syncing
         if (currentUser?.email && profRes.data.email !== currentUser.email) {
           await supabase.from('profiles').update({ email: currentUser.email }).eq('id', userId);
-          profRes.data.email = currentUser.email; // Update local
+          profRes.data.email = currentUser.email;
         }
-
         setUser(prev => ({
           ...prev,
           ...profRes.data,
-          // Preserve session email if profile email is missing/null
           email: currentUser?.email || profRes.data.email || prev.email,
-          // Ensure nested objects are merged correctly
           settings: { ...(prev?.settings || {}), ...(profRes.data.settings || {}) },
-          // Specifically expose gpaScale for easier access in pages
           gpaScale: profRes.data.settings?.gpaScale || profRes.data.gpa_scale || '4.0'
         }));
       } else if (currentUser) {
-        // No profile exists? Create one.
+        // Create profile if missing
         const { error: createErr } = await supabase.from('profiles').insert([{
           id: userId,
           email: currentUser.email,
           display_name: currentUser.user_metadata?.full_name || currentUser.email.split('@')[0],
           avatar_url: currentUser.user_metadata?.avatar_url
         }]);
-        if (!createErr) {
-          // Retry fetch? Or just set user
-          setUser(prev => ({ ...prev, email: currentUser.email }));
-        }
+        if (!createErr) setUser(prev => ({ ...prev, email: currentUser.email }));
       }
 
+      // 2. Core Data (Courses, Assignments, Tasks)
       if (courseRes.data) {
-        const mappedCourses = courseRes.data.map(c => ({
-          id: c.id,
-          userId: c.user_id,
-          name: c.name,
-          code: c.code,
-          credits: c.credits,
-          color: c.color,
-          gradingScale: c.grading_scale,
-          categories: c.categories,
-          lmsProvider: c.lms_provider,
-          lmsId: c.lms_id,
-          syncEnabled: c.sync_enabled,
-          schedule: c.schedule || [] // Map snake_case or default
-        }));
-        setCourses(mappedCourses);
+        setCourses(courseRes.data.map(c => ({
+          id: c.id, userId: c.user_id, name: c.name, code: c.code, credits: c.credits, color: c.color,
+          gradingScale: c.grading_scale, categories: c.categories, lmsProvider: c.lms_provider,
+          lmsId: c.lms_id, syncEnabled: c.sync_enabled, schedule: c.schedule || []
+        })));
       }
 
       if (assignRes.data) {
-        const mappedAssign = assignRes.data.map(a => ({
-          id: a.id,
-          userId: a.user_id,
-          courseId: a.course_id,
-          title: a.title,
-          dueDate: a.due_date,
-          pointsPossible: a.points_possible,
-          pointsEarned: a.points_earned,
-          categoryId: a.category_id,
-          lmsId: a.lms_id,
-          lmsSource: a.lms_source,
-          lmsStatus: a.lms_status,
-          reminders: a.reminders
-        }));
-        setAssignments(mappedAssign);
+        setAssignments(assignRes.data.map(a => ({
+          id: a.id, userId: a.user_id, courseId: a.course_id, title: a.title, dueDate: a.due_date,
+          pointsPossible: a.points_possible, pointsEarned: a.points_earned, categoryId: a.category_id,
+          lmsId: a.lms_id, lmsSource: a.lms_source, lmsStatus: a.lms_status, reminders: a.reminders
+        })));
       }
 
       if (taskRes.data) {
         const mappedTasks = taskRes.data.map(t => ({
-          id: t.id,
-          userId: t.user_id,
-          title: t.title,
-          dueDate: t.due_date,
-          priority: t.priority,
-          estMinutes: t.est_minutes,
-          completed: t.completed,
-          recurrenceRule: t.recurrence_rule,
-          reminders: t.reminders,
-          parentTaskId: t.parent_task_id
+          id: t.id, userId: t.user_id, title: t.title, dueDate: t.due_date, priority: t.priority,
+          estMinutes: t.est_minutes, completed: t.completed, recurrenceRule: t.recurrence_rule,
+          reminders: t.reminders, parentTaskId: t.parent_task_id
         }));
         setTasks(mappedTasks);
+
+        // Sync stats check (Total Tasks)
+        const completedCount = mappedTasks.filter(t => t.completed).length;
+        if (currentStats && currentStats.total_tasks_completed === 0 && completedCount > 0) {
+          supabase.from('user_stats').update({ total_tasks_completed: completedCount }).eq('user_id', userId);
+          setUserStats(prev => ({ ...prev, total_tasks_completed: completedCount }));
+        }
       }
 
-      if (lmsRes.data) {
-        setLmsConnections(lmsRes.data);
-      }
+      // 3. RELEASE UI (Interactable)
+      setLoading(false);
 
-      if (notifRes.data) {
-        setSocialNotifications(notifRes.data);
-      }
+      // --- TIER 2: BACKGROUND DATA (Social, LMS, Notifications) ---
+      // Fetch these silently to avoid blocking the user
+      Promise.all([
+        supabase.from('lms_connections').select('*').eq('user_id', userId),
+        supabase.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+        supabase.from('invites').select('*').eq('creator_id', userId).eq('is_active', true),
+        supabase.from('social_connections').select('*').or(`user_id.eq.${userId},target_user_id.eq.${userId}`),
+        supabase.from('study_activity').select('*, profiles(display_name, avatar_url)').order('created_at', { ascending: false }).limit(50),
+        supabase.from('friend_requests').select('*, profiles:sender_id(display_name, email, avatar_url)').eq('receiver_id', userId).eq('status', 'pending')
+      ]).then(([lmsRes, notifRes, inviteRes, connRes, actRes, reqRes]) => {
+        if (lmsRes.data) setLmsConnections(lmsRes.data);
+        if (notifRes.data) setSocialNotifications(notifRes.data);
+        if (inviteRes.data) setActiveInvites(inviteRes.data);
+        if (connRes.data) setConnections(connRes.data);
+        if (actRes.data) setActivities(actRes.data);
+        if (reqRes.data) setFriendRequests(reqRes.data);
 
-      if (inviteRes.data) {
-        setActiveInvites(inviteRes.data);
-      }
-
-      if (connRes.data) {
-        setConnections(connRes.data);
-      }
-
-      if (actRes?.data) setActivities(actRes.data);
-      if (reqRes?.data) setFriendRequests(reqRes.data);
-
-      // Social v2
-      if (typeof statsRes !== 'undefined' && arguments.length > 9) {
-        // statsRes was actually the 6th element.
-        // Wait, I used array destructuring. I need to update the destructuring line above?
-        // I didn't update the destructuring variable names in the previous step?
-        // Ah, I see step 703 view showed lines 80-140. Step 706 updated lines in that range.
-        // But I need to extract the data from the result array.
-      }
-      // Actually my previous replace (Step 706) replaced the Promise.all call but I need to check variable names.
-      // const [..., notifRes, inviteRes, connRes] were variable names.
-      // JavaScript array destructuring assigns by position.
-      // Original: ... lmsRes, statsRes, notifRes, inviteRes, connRes]
-      // New: ... lmsRes, statsRes, notifRes, inviteRes, connRes, actRes, reqRes]
-
-      // So I need to update the destructuring line first.
-      // Let me re-do the previous step's logic properly in the next step or this one if I can.
-      // I can't edit the same lines again easily if I messed up.
-      // Let me look at line 117.
-
-      // Real-time notifications
-      supabase
-        .channel('public:notifications')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
-          payload => {
-            setSocialNotifications(prev => [payload.new, ...prev]);
-            addNotification(payload.new.title, 'info');
-          }
-        )
-        .subscribe();
+        // Real-time listener (setup after initial load)
+        setupNotificationListener(userId);
+      }).catch(err => console.error("Background fetch error:", err));
 
     } catch (e) {
       console.error("Error loading data", e);
-    } finally {
       setLoading(false);
     }
+  };
+
+  const setupNotificationListener = (userId) => {
+    supabase
+      .channel('public:notifications')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+        payload => {
+          setSocialNotifications(prev => [payload.new, ...prev]);
+          addNotification(payload.new.title, 'info');
+        }
+      )
+      .subscribe();
   };
 
   // --- XP & Leveling ---
