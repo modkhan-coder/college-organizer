@@ -185,12 +185,21 @@ const Help = () => {
                         </div>
                     </div>
 
-                    <h4>🏆 Achievements & Badges</h4>
-                    <p>Visit the <strong>Achievements</strong> page to view your trophy cabinet.</p>
-                    <ul>
-                        <li><strong>Unlock Badges:</strong> Earn badges for streaks, task completions, and late-night study sessions.</li>
-                        <li><strong>Level Up:</strong> The more you use the app, the higher your academic rank climbs.</li>
+                    <h4>🏆 XP & Leveling System</h4>
+                    <p>Visit the <strong>Dashboard</strong> to track your progress.</p>
+                    <ul style={{ background: 'var(--bg-app)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                        <li style={{ marginBottom: '8px' }}><strong>Complete a Task:</strong> +50 XP ⚡</li>
+                        <li style={{ marginBottom: '8px' }}><strong>Grade an Assignment:</strong> +100 XP 📝</li>
+                        <li style={{ marginBottom: '8px' }}><strong>Ace Bonus (&gt;90%):</strong> +50 XP Bonus 🌟</li>
+                        <li><strong>Level Up:</strong> Every 500 XP unleashes a new badge!</li>
                     </ul>
+
+                    <div style={{ marginTop: '16px', padding: '16px', borderRadius: '12px', background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)', color: 'black' }}>
+                        <strong>🚀 Pro Tip:</strong>
+                        <p style={{ margin: '4px 0 0', fontSize: '0.9rem' }}>
+                            Upgrade to <strong>Pro</strong> or <strong>Premium</strong> to activate the <strong>2x Multiplier</strong>. You'll earn double XP for every action!
+                        </p>
+                    </div>
                 </div>
             )
         },
