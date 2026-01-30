@@ -18,7 +18,7 @@ export const AppProvider = ({ children }) => {
   const [activeInvites, setActiveInvites] = useState([]);
   const [activities, setActivities] = useState([]);
   const [friendRequests, setFriendRequests] = useState([]);
-  const [userStats, setUserStats] = useState({ current_streak: 0, best_streak: 0, total_tasks_completed: 0 });
+  const [userStats, setUserStats] = useState({ current_streak: 0, best_streak: 0, total_tasks_completed: 0, xp: 0, level: 1 });
   const [survivalMode, setSurvivalMode] = useState(false);
   const [syncingBadges, setSyncingBadges] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -328,6 +328,40 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  // --- XP & Leveling ---
+  const awardXP = async (amount, reason) => {
+    try {
+      const { data, error } = await supabase.rpc('add_xp', {
+        target_user_id: user.id,
+        base_amount: amount
+      });
+
+      if (error) throw error;
+
+      setUserStats(prev => ({
+        ...prev,
+        xp: data.new_xp,
+        level: data.new_level
+      }));
+
+      // Toast Logic
+      const gained = data.xp_gained;
+      const msg = reason ? `+${gained} XP: ${reason}` : `+${gained} XP`;
+
+      // Check for Level Up
+      if (data.leveled_up) {
+        addNotification(`🎉 LEVEL UP! Level ${data.new_level} reached!`, 'success');
+        const audio = new Audio('https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg'); // Placeholder sound
+        audio.play().catch(e => { });
+      } else {
+        addNotification(msg, 'success');
+      }
+
+    } catch (e) {
+      console.error('Error awarding XP:', e);
+    }
+  };
+
   // --- Persistence Wrappers ---
   const saveUser = async (userData) => {
     // If gpaScale is provided top-level, ensure it's synced to settings for persistence fallback
@@ -493,6 +527,15 @@ export const AppProvider = ({ children }) => {
       if (isNowGraded) {
         handleActivity('assignment');
         addNotification('Grade saved! Achievement progress tracked.', 'success');
+
+        // XP Award
+        const earned = parseFloat(updates.pointsEarned);
+        const possible = parseFloat(updates.pointsPossible || oldAssign.pointsPossible);
+        let baseXP = 100;
+        if (possible > 0 && (earned / possible) >= 0.9) {
+          baseXP += 50;
+        }
+        awardXP(baseXP, baseXP > 100 ? 'Assignment Graded + Ace Bonus' : 'Assignment Graded');
       }
     }
   };
@@ -585,6 +628,7 @@ export const AppProvider = ({ children }) => {
         handleActivity('task');
         logActivity('task', task.title, { minutes: task.estMinutes });
         addNotification('Task completed! Streak updated 🚀', 'success');
+        awardXP(50, 'Task Completed');
       }
     }
   };
@@ -1247,6 +1291,7 @@ export const AppProvider = ({ children }) => {
     toggleTask,
     deleteTask,
     userStats,
+    awardXP,
     handleActivity,
     loading,
     checkLimit,

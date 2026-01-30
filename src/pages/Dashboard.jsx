@@ -14,6 +14,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 // Widgets
 import { ProgressWidget, StatsWidget, InsightsWidget, TasksWidget, GradesWidget } from '../components/DashboardWidgets';
+import LevelProgress from '../components/LevelProgress';
 
 // Default Widget Order (Stats & Progress pinned, so removed from draggable list)
 const DEFAULT_LAYOUT = ['insights', 'tasks', 'grades'];
@@ -186,8 +187,9 @@ const Dashboard = () => {
                 <StatsWidget overdueCount={overdueCount} todayCount={todayCount} tomorrowCount={tomorrowCount} weekCount={weekCount} />
             </div>
 
-            {/* Pinned Progress Section */}
-            <div style={{ marginBottom: '24px' }}>
+            {/* Level & Streak Section */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', marginBottom: '24px' }}>
+                <LevelProgress xp={userStats.xp || 0} level={userStats.level || 1} isPro={['pro', 'premium'].includes(user?.plan)} />
                 <ProgressWidget userStats={userStats} tasksDoneToday={tasksDoneToday} dailyGoal={dailyGoal} setIsShareModalOpen={setIsShareModalOpen} />
             </div>
 
