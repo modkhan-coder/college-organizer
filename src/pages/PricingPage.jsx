@@ -212,7 +212,7 @@ const PricingPage = () => {
                     </h3>
                     <div style={{ fontSize: '2rem', fontWeight: 'bold', margin: '16px 0' }}>
                         {billingCycle === 'yearly' ? '$99.99' : '$9.99'}
-                        <span style={{ fontSize: '1rem', fontWeight: 'normal', color: 'var(--text-secondary)' }}>/{billingCycle === 'yearly' ? 'mo' : 'mo'}</span>
+                        <span style={{ fontSize: '1rem', fontWeight: 'normal', color: 'var(--text-secondary)' }}>/{billingCycle === 'yearly' ? 'yr' : 'mo'}</span>
                     </div>
                     <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Let AI build your perfect study schedule.</p>
 

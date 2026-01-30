@@ -25,6 +25,38 @@ serve(async (req) => {
         // Parse Body
         const { messages, response_format, model } = await req.json()
 
+        // Check Limits
+        const { data: profile } = await supabaseClient.from('profiles').select('plan').eq('id', user.id).single()
+        const { data: stats } = await supabaseClient.from('user_stats').select('ai_usage_count, ai_last_reset').eq('user_id', user.id).single()
+
+        const plan = profile?.plan || 'free'
+        let usage = stats?.ai_usage_count || 0
+        const lastResetStr = stats?.ai_last_reset
+        const limit = (plan === 'premium' || plan === 'pro') ? 50 : 0 // Free users get 0
+
+        // Auto-Reset logic
+        const now = new Date()
+        const lastResetDate = lastResetStr ? new Date(lastResetStr) : new Date()
+
+        // If stored date is in a different month/year than today, reset usage
+        if (lastResetStr && (lastResetDate.getMonth() !== now.getMonth() || lastResetDate.getFullYear() !== now.getFullYear())) {
+            console.log(`Resetting AI usage for user ${user.id} (New Month)`)
+            const todayStr = now.toISOString().split('T')[0]
+            try {
+                await supabaseClient.from('user_stats').update({ ai_usage_count: 0, ai_last_reset: todayStr }).eq('user_id', user.id)
+                usage = 0 // Reset local variable for check below
+            } catch (e) {
+                console.error("Failed to reset usage stats", e)
+            }
+        }
+
+        if (usage >= limit) {
+            return new Response(JSON.stringify({ error: `AI Limit Reached (${usage}/${limit}). Please upgrade or wait for next month.` }), {
+                status: 403,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
         // Call OpenAI
         const res = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
@@ -44,6 +76,13 @@ serve(async (req) => {
         if (data.error) {
             console.error("OpenAI Error:", data.error)
             throw new Error(data.error.message)
+        }
+
+        // Increment Usage (Best effort, ignore error)
+        try {
+            await supabaseClient.from('user_stats').update({ ai_usage_count: usage + 1 }).eq('user_id', user.id)
+        } catch (e) {
+            console.error("Failed to increment usage", e)
         }
 
         return new Response(JSON.stringify(data), {
