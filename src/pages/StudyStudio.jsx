@@ -60,6 +60,8 @@ const StudyStudio = () => {
 
     // Loading
     const [generating, setGenerating] = useState(false);
+    const [pdfCredits, setPdfCredits] = useState(50);
+    const [creditsResetAt, setCreditsResetAt] = useState(null);
 
     // Premium Check - Show paywall if not premium
     if (!isPremium) {
@@ -188,6 +190,7 @@ const StudyStudio = () => {
             setCourse(found);
             fetchPDFs();
             fetchSavedContent();
+            fetchCredits();
         }
     }, [courseId, courses]);
 
@@ -330,6 +333,10 @@ const StudyStudio = () => {
 
     // Generate Notes
     const handleGenerateNotes = async () => {
+        // Check and consume credit
+        const hasCredit = await consumeCredit();
+        if (!hasCredit) return;
+
         setGenerating(true);
         try {
             const pdfIds = getScopedPDFIds();
@@ -346,6 +353,9 @@ const StudyStudio = () => {
         } catch (error) {
             console.error('Notes error:', error);
             addNotification(`Error: ${error.message}`, 'error');
+            // Refund credit on error
+            await supabase.rpc('consume_pdf_credit', { user_id_param: user.id, credits_to_consume: -1 });
+            await fetchCredits();
         } finally {
             setGenerating(false);
         }
@@ -415,6 +425,48 @@ const StudyStudio = () => {
         return matchesType && matchesSearch;
     });
 
+    // Fetch Credits
+    const fetchCredits = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('pdf_credits, pdf_credits_reset_at')
+                .eq('id', user.id)
+                .single();
+
+            if (error) throw error;
+            setPdfCredits(data?.pdf_credits || 0);
+            setCreditsResetAt(data?.pdf_credits_reset_at);
+        } catch (error) {
+            console.error('Error fetching credits:', error);
+        }
+    };
+
+    // Consume Credit
+    const consumeCredit = async () => {
+        try {
+            const { data, error } = await supabase.rpc('consume_pdf_credit', {
+                user_id_param: user.id,
+                credits_to_consume: 1
+            });
+
+            if (error) throw error;
+
+            if (data) {
+                // Credit consumed successfully
+                await fetchCredits(); // Refresh credits display
+                return true;
+            } else {
+                addNotification('Out of credits! Credits reset monthly.', 'error');
+                return false;
+            }
+        } catch (error) {
+            console.error('Error consuming credit:', error);
+            addNotification('Error checking credits', 'error');
+            return false;
+        }
+    };
+
     // Save Quiz
     const handleSaveQuiz = async () => {
         if (!generatedQuiz) return;
@@ -439,6 +491,10 @@ const StudyStudio = () => {
 
     // Generate Quiz
     const handleGenerateQuiz = async () => {
+        // Check and consume credit
+        const hasCredit = await consumeCredit();
+        if (!hasCredit) return;
+
         setGenerating(true);
         try {
             const pdfIds = getScopedPDFIds();
@@ -460,6 +516,9 @@ const StudyStudio = () => {
         } catch (error) {
             console.error('Quiz error:', error);
             addNotification(`Error: ${error.message}`, 'error');
+            // Refund credit on error
+            await supabase.rpc('consume_pdf_credit', { user_id_param: user.id, credits_to_consume: -1 });
+            await fetchCredits();
         } finally {
             setGenerating(false);
         }
@@ -467,28 +526,34 @@ const StudyStudio = () => {
 
     // Chat
     const handleSendChat = async (e) => {
-        e?.preventDefault();
+        e.preventDefault();
         if (!chatInput.trim()) return;
 
-        const userMessage = { role: 'user', content: chatInput };
-        setChatHistory(prev => [...prev, userMessage]);
-        setChatInput('');
-        setGenerating(true);
+        // Check and consume credit
+        const hasCredit = await consumeCredit();
+        if (!hasCredit) return;
 
+        const userMessage = chatInput;
+        setChatInput('');
+        setChatHistory([...chatHistory, { role: 'user', content: userMessage }]);
+
+        setGenerating(true);
         try {
             const pdfIds = getScopedPDFIds();
             const { chunks } = await searchContextWithPages(courseId, pdfIds, pageStart, pageEnd);
+            const response = await chatWithPDFCitations(chunks, chatHistory, userMessage, course.name);
+            setChatHistory(prev => [...prev, { role: 'assistant', content: response }]);
 
-            const response = await chatWithPDFCitations([...chatHistory, userMessage], chunks);
-            const newHistory = [...chatHistory, userMessage, { role: 'assistant', content: response }];
-            setChatHistory(newHistory);
-
-            // Persist to localStorage
+            // Persist
             if (selectedPDF) {
-                saveContent(selectedPDF.id, 'chat', newHistory);
+                saveContent(selectedPDF.id, 'chat', [...chatHistory, { role: 'user', content: userMessage }, { role: 'assistant', content: response }]);
             }
         } catch (error) {
-            addNotification(`Chat error: ${error.message}`, 'error');
+            console.error('Chat error:', error);
+            addNotification(`Error: ${error.message}`, 'error');
+            // Refund credit on error
+            await supabase.rpc('consume_pdf_credit', { user_id_param: user.id, credits_to_consume: -1 });
+            await fetchCredits();
         } finally {
             setGenerating(false);
         }
@@ -529,14 +594,36 @@ const StudyStudio = () => {
         <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)' }}>
             {/* Header */}
             <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)' }}>
-                <button
-                    onClick={() => navigate(`/courses/${courseId}`)}
-                    style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}
-                >
-                    <ArrowLeft size={18} /> Back to Course
+                <button onClick={() => navigate(`/courses/${courseId}`)} className="btn btn-secondary" style={{ marginBottom: '12px' }}>
+                    <ArrowLeft size={16} /> Back to Course
                 </button>
-                <h1 className="page-title">PDF Study Studio</h1>
-                <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>{course.name}</p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                        <h1 className="page-title">PDF Study Studio</h1>
+                        <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>{course.name}</p>
+                    </div>
+
+                    {/* Credits Display */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '12px 20px',
+                        background: pdfCredits > 10 ? 'var(--primary-light)' : (pdfCredits > 5 ? '#fef3c7' : '#fee2e2'),
+                        borderRadius: '12px',
+                        border: `2px solid ${pdfCredits > 10 ? 'var(--primary)' : (pdfCredits > 5 ? '#f59e0b' : '#ef4444')}`
+                    }}>
+                        <Brain size={20} style={{ color: pdfCredits > 10 ? 'var(--primary)' : (pdfCredits > 5 ? '#f59e0b' : '#ef4444') }} />
+                        <div>
+                            <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: pdfCredits > 10 ? 'var(--primary)' : (pdfCredits > 5 ? '#92400e' : '#991b1b') }}>
+                                {pdfCredits} Credits
+                            </div>
+                            <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>
+                                Resets {creditsResetAt ? new Date(creditsResetAt).toLocaleDateString() : 'monthly'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Main Layout: 3 Panels */}
