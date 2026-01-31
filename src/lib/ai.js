@@ -152,3 +152,203 @@ export const chatWithDocuments = async (history, context) => {
     }
 };
 
+
+// =====================================================
+// PHASE 2: Citation-Aware Generation Functions
+// =====================================================
+
+/**
+ * Search context with page metadata for citations
+ * Returns chunks with pdf_name and page_number
+ */
+export const searchContextWithPages = async (courseId, pdfIds = null, pageStart = null, pageEnd = null) => {
+    try {
+        // Use the RPC function we created in Phase 1
+        const { data, error } = await supabase.rpc('get_pdf_chunks', {
+            p_course_id: courseId,
+            p_user_id: (await supabase.auth.getUser()).data.user.id,
+            p_pdf_ids: pdfIds,
+            p_page_start: pageStart ? parseInt(pageStart) : null,
+            p_page_end: pageEnd ? parseInt(pageEnd) : null
+        });
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            return { chunks: [], contextText: '' };
+        }
+
+        // Build context text with page markers
+        const contextText = data.map(chunk =>
+            `[Source: ${chunk.pdf_name} p.${chunk.page_number}]\n${chunk.content}`
+        ).join('\n\n---\n\n');
+
+        return {
+            chunks: data, // Array of { chunk_id, pdf_name, page_number, content, pdf_id }
+            contextText
+        };
+    } catch (error) {
+        console.error('Context search error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Generate Guided Notes with Citations
+ * @param {Array} chunks - Result from searchContextWithPages
+ * @param {string} format - 'outline' | 'cornell' | 'fill-in' | 'eli5'
+ * @returns {Object} - { title, sections: [{ heading, content, citations }] }
+ */
+export const generateGuidedNotes = async (chunks, courseName, format = 'outline') => {
+    if (!chunks || chunks.length === 0) {
+        throw new Error('No content found for selected PDFs/pages. Upload materials first.');
+    }
+
+    const contextText = chunks.map(c =>
+        `[${c.pdf_name} p.${c.page_number}]: ${c.content}`
+    ).join('\n\n');
+
+    const formatInstructions = {
+        outline: 'Create hierarchical outline notes with main topics and subtopics.',
+        cornell: 'Create Cornell-style notes with Cues, Notes, and Summary sections.',
+        'fill-in': 'Create fill-in-the-blank study notes with key terms removed.',
+        eli5: 'Create a simple explanation suitable for someone new to the topic.'
+    };
+
+    const prompt = `You are an expert note-taker. Generate ${format} notes for "${courseName}" based ONLY on the provided excerpts.
+
+CRITICAL CITATION RULES:
+- Every factual statement MUST cite the source using [PDFName p.X] format
+- Citations must reference ONLY the provided sources
+- If a fact spans multiple sources, cite all: [Bio101.pdf p.12, Lecture3.pdf p.5]
+
+FORMAT: ${formatInstructions[format] || formatInstructions.outline}
+
+Return ONLY valid JSON in this structure:
+{
+  "title": "Study Notes Title",
+  "sections": [
+    {
+      "heading": "Section Heading",
+      "content": "Section content with inline [PDFName p.X] citations after each statement.",
+      "citations": [{"pdf_name": "...", "page": 12}]
+    }
+  ]
+}
+
+Context:
+${contextText.substring(0, 20000)}`;
+
+    try {
+        const data = await callAI(
+            [
+                { role: "system", content: "You are a study assistant. Output JSON only with citations." },
+                { role: "user", content: prompt }
+            ],
+            { type: "json_object" }
+        );
+
+        const result = JSON.parse(data.choices[0].message.content);
+        return result;
+    } catch (error) {
+        console.error('Guided Notes Error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Generate Quiz with Citations
+ * @param {Array} chunks - Result from searchContextWithPages
+ * @param {Object} settings - { numQuestions, difficulty, types }
+ * @returns {Object} - { questions: [{ question, options, correctAnswer, explanation, citation }] }
+ */
+export const generateQuizWithCitations = async (chunks, courseName, settings = {}) => {
+    if (!chunks || chunks.length === 0) {
+        throw new Error('No content found. Upload materials first.');
+    }
+
+    const { numQuestions = 10, difficulty = 'medium', types = ['mcq'] } = settings;
+
+    const contextText = chunks.map(c =>
+        `[${c.pdf_name} p.${c.page_number}]: ${c.content}`
+    ).join('\n\n');
+
+    const prompt = `Generate a ${difficulty} practice quiz for "${courseName}" with ${numQuestions} questions.
+
+CITATION RULES:
+- Every question MUST cite its source: {"citation": {"pdf_name": "...", "page": 12}}
+- Only use facts from the provided excerpts
+
+QUESTION TYPES: ${types.join(', ')}
+
+Return ONLY valid JSON:
+{
+  "questions": [
+    {
+      "question": "Question text with LaTeX $math$ if needed",
+      "options": ["A", "B", "C", "D"],
+      "correctAnswer": 0,
+      "explanation": "Why this is correct (cite source)",
+      "citation": {"pdf_name": "Bio101.pdf", "page": 45}
+    }
+  ]
+}
+
+Context:
+${contextText.substring(0, 20000)}`;
+
+    try {
+        const data = await callAI(
+            [
+                { role: "system", content: "You are a quiz generator. Output JSON only." },
+                { role: "user", content: prompt }
+            ],
+            { type: "json_object" }
+        );
+
+        return JSON.parse(data.choices[0].message.content);
+    } catch (error) {
+        console.error('Quiz Generation Error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Chat with PDF Citations
+ * @param {Array} history - Chat history
+ * @param {Array} chunks - Result from searchContextWithPages
+ * @returns {string} - Response with inline [PDFName p.X] citations
+ */
+export const chatWithPDFCitations = async (history, chunks) => {
+    if (!chunks || chunks.length === 0) {
+        return "No PDF content loaded. Please upload course materials to chat with them.";
+    }
+
+    const contextText = chunks.map(c =>
+        `[${c.pdf_name} p.${c.page_number}]: ${c.content}`
+    ).join('\n\n');
+
+    const systemPrompt = `You are an AI tutor. Answer questions based ONLY on the provided PDF excerpts.
+
+CITATION RULES:
+- Cite EVERY factual claim using [PDFName p.X] format
+- Example: "Photosynthesis occurs in chloroplasts [Bio101.pdf p.23]."
+- If uncertain, say "I don't see that in the provided pages."
+
+MATH: Use LaTeX with $ and $$ delimiters.
+
+Context:
+${contextText.substring(0, 20000)}`;
+
+    try {
+        const data = await callAI([
+            { role: "system", content: systemPrompt },
+            ...history
+        ]);
+
+        return data.choices[0].message.content;
+    } catch (error) {
+        console.error('Chat Error:', error);
+        throw error;
+    }
+};

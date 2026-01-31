@@ -3,12 +3,19 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
 import { extractTextFromPdf, chunkTextByPage } from '../utils/pdfProcessor';
+import { searchContextWithPages, generateGuidedNotes, generateQuizWithCitations, chatWithPDFCitations } from '../lib/ai';
 import PDFViewer from '../components/PDFViewer';
 import PDFCitation from '../components/PDFCitation';
 import {
     ArrowLeft, Upload, FileText, Trash2, BookOpen,
-    Brain, MessageSquare, Save, Star
+    Brain, MessageSquare, Save, Star, RefreshCw, Send
 } from 'lucide-react';
+
+// Math & Markdown Rendering
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 const StudyStudio = () => {
     const { courseId } = useParams();
@@ -22,12 +29,29 @@ const StudyStudio = () => {
     const [selectedPDF, setSelectedPDF] = useState(null);
     const [currentFileUrl, setCurrentFileUrl] = useState(null);
     const [uploading, setUploading] = useState(false);
-    const [activeTab, setActiveTab] = useState('chat'); // chat | notes | quiz | saved
+    const [activeTab, setActiveTab] = useState('chat');
 
     // Scope & Page Range
-    const [scope, setScope] = useState('this'); // 'this' | 'multiple' | 'all'
+    const [scope, setScope] = useState('this');
     const [pageStart, setPageStart] = useState('');
     const [pageEnd, setPageEnd] = useState('');
+
+    // Notes State
+    const [noteFormat, setNoteFormat] = useState('outline');
+    const [generatedNotes, setGeneratedNotes] = useState(null);
+    const [notesTitle, setNotesTitle] = useState('');
+
+    // Quiz State
+    const [quizSettings, setQuizSettings] = useState({ numQuestions: 10, difficulty: 'medium' });
+    const [generatedQuiz, setGeneratedQuiz] = useState(null);
+    const [quizAnswers, setQuizAnswers] = useState({});
+
+    // Chat State
+    const [chatHistory, setChatHistory] = useState([]);
+    const [chatInput, setChatInput] = useState('');
+
+    // Loading
+    const [generating, setGenerating] = useState(false);
 
     useEffect(() => {
         const found = courses.find(c => c.id === courseId);
@@ -56,10 +80,9 @@ const StudyStudio = () => {
     const handleSelectPDF = async (pdf) => {
         setSelectedPDF(pdf);
 
-        // Get signed URL from storage
         const { data } = await supabase.storage
             .from('course_materials')
-            .createSignedUrl(pdf.file_path, 3600); // 1 hour expiry
+            .createSignedUrl(pdf.file_path, 3600);
 
         if (data?.signedUrl) {
             setCurrentFileUrl(data.signedUrl);
@@ -74,7 +97,6 @@ const StudyStudio = () => {
         addNotification('Uploading and processing PDF...', 'info');
 
         try {
-            // 1. Upload to storage
             const filePath = `${user.id}/${courseId}/${file.name}`;
             const { error: uploadError } = await supabase.storage
                 .from('course_materials')
@@ -82,10 +104,8 @@ const StudyStudio = () => {
 
             if (uploadError) throw uploadError;
 
-            // 2. Extract text per-page
             const { numPages, pages } = await extractTextFromPdf(file);
 
-            // 3. Create pdf_files record
             const { data: pdfRecord, error: pdfError } = await supabase
                 .from('pdf_files')
                 .insert({
@@ -100,7 +120,6 @@ const StudyStudio = () => {
 
             if (pdfError) throw pdfError;
 
-            // 4. Create chunks with page metadata
             const chunks = chunkTextByPage(pages);
             const docRecords = chunks.map(chunk => ({
                 user_id: user.id,
@@ -134,15 +153,8 @@ const StudyStudio = () => {
         if (!confirm(`Delete "${pdf.file_name}"? This will remove all generated content.`)) return;
 
         try {
-            // Delete from storage
             await supabase.storage.from('course_materials').remove([pdf.file_path]);
-
-            // Database cascade will handle pdf_files → course_docs deletion
-            const { error } = await supabase
-                .from('pdf_files')
-                .delete()
-                .eq('id', pdf.id);
-
+            const { error } = await supabase.from('pdf_files').delete().eq('id', pdf.id);
             if (error) throw error;
 
             addNotification('PDF deleted', 'success');
@@ -157,17 +169,142 @@ const StudyStudio = () => {
     };
 
     const handleCitationClick = (pdfName, page) => {
-        // Find PDF and load it
         const pdf = pdfFiles.find(p => p.file_name === pdfName);
         if (pdf) {
             handleSelectPDF(pdf);
-            // Wait for PDF to load, then jump
             setTimeout(() => {
                 if (window.jumpToPDFPage) {
                     window.jumpToPDFPage(page);
                 }
             }, 500);
         }
+    };
+
+    // Get PDF IDs based on scope
+    const getScopedPDFIds = () => {
+        if (scope === 'this' && selectedPDF) return [selectedPDF.id];
+        if (scope === 'all') return pdfFiles.map(p => p.id);
+        // For 'multiple', Phase 3 will have a selector modal
+        return selectedPDF ? [selectedPDF.id] : null;
+    };
+
+    // Generate Notes
+    const handleGenerateNotes = async () => {
+        setGenerating(true);
+        try {
+            const pdfIds = getScopedPDFIds();
+            const { chunks } = await searchContextWithPages(courseId, pdfIds, pageStart, pageEnd);
+
+            if (chunks.length === 0) {
+                throw new Error('No content found in selected range. Adjust scope/pages.');
+            }
+
+            const notes = await generateGuidedNotes(chunks, course.name, noteFormat);
+            setGeneratedNotes(notes);
+            setNotesTitle(notes.title || 'Untitled Notes');
+            addNotification('Notes generated!', 'success');
+        } catch (error) {
+            console.error('Notes error:', error);
+            addNotification(`Error: ${error.message}`, 'error');
+        } finally {
+            setGenerating(false);
+        }
+    };
+
+    // Save Notes
+    const handleSaveNotes = async () => {
+        if (!generatedNotes) return;
+
+        try {
+            await supabase.from('saved_content').insert({
+                user_id: user.id,
+                course_id: courseId,
+                content_type: 'note',
+                title: notesTitle,
+                content: generatedNotes,
+                pdf_ids: getScopedPDFIds(),
+                page_range: pageStart && pageEnd ? [parseInt(pageStart), parseInt(pageEnd)] : null
+            });
+
+            addNotification('Notes saved!', 'success');
+        } catch (error) {
+            addNotification(`Save failed: ${error.message}`, 'error');
+        }
+    };
+
+    // Generate Quiz
+    const handleGenerateQuiz = async () => {
+        setGenerating(true);
+        try {
+            const pdfIds = getScopedPDFIds();
+            const { chunks } = await searchContextWithPages(courseId, pdfIds, pageStart, pageEnd);
+
+            if (chunks.length === 0) {
+                throw new Error('No content found in selected range.');
+            }
+
+            const quiz = await generateQuizWithCitations(chunks, course.name, quizSettings);
+            setGeneratedQuiz(quiz);
+            setQuizAnswers({});
+            addNotification('Quiz generated!', 'success');
+        } catch (error) {
+            console.error('Quiz error:', error);
+            addNotification(`Error: ${error.message}`, 'error');
+        } finally {
+            setGenerating(false);
+        }
+    };
+
+    // Chat
+    const handleSendChat = async (e) => {
+        e?.preventDefault();
+        if (!chatInput.trim()) return;
+
+        const userMessage = { role: 'user', content: chatInput };
+        setChatHistory(prev => [...prev, userMessage]);
+        setChatInput('');
+        setGenerating(true);
+
+        try {
+            const pdfIds = getScopedPDFIds();
+            const { chunks } = await searchContextWithPages(courseId, pdfIds, pageStart, pageEnd);
+
+            const response = await chatWithPDFCitations([...chatHistory, userMessage], chunks);
+            setChatHistory(prev => [...prev, { role: 'assistant', content: response }]);
+        } catch (error) {
+            addNotification(`Chat error: ${error.message}`, 'error');
+        } finally {
+            setGenerating(false);
+        }
+    };
+
+    // Parse and render citations in text
+    const renderTextWithCitations = (text) => {
+        const citationRegex = /\[([^\]]+?\.pdf) p\.(\d+)\]/g;
+        const parts = [];
+        let lastIndex = 0;
+        let match;
+
+        while ((match = citationRegex.exec(text)) !== null) {
+            if (match.index > lastIndex) {
+                parts.push(text.substring(lastIndex, match.index));
+            }
+            parts.push(
+                <PDFCitation
+                    key={match.index}
+                    pdfName={match[1]}
+                    page={parseInt(match[2])}
+                    onClick={handleCitationClick}
+                />
+            );
+            lastIndex = match.index + match[0].length;
+        }
+
+        if (lastIndex < text.length) {
+            parts.push(text.substring(lastIndex));
+        }
+
+        return parts;
     };
 
     if (!course) return <div style={{ padding: '24px' }}>Loading...</div>;
@@ -227,7 +364,7 @@ const StudyStudio = () => {
                                         <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>{pdf.num_pages} pages</div>
                                     </div>
                                     <button
-                                        onClick={(e) => { e.stopPropagation(); handleDelete(pdf); }}
+                                        onClick={(e) => { e.stop Propagation(); handleDelete(pdf); }}
                                         style={{ background: 'none', border: 'none', color: 'currentColor', cursor: 'pointer', padding: '4px', opacity: 0.7 }}
                                     >
                                         <Trash2 size={14} />
@@ -300,36 +437,208 @@ const StudyStudio = () => {
                     </div>
 
                     {/* Tab Content */}
-                    <div className="card" style={{ flex: 1, margin: '16px', overflowY: 'auto', borderRadius: '12px' }}>
+                    <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+
+                        {/* CHAT TAB */}
                         {activeTab === 'chat' && (
-                            <div style={{ padding: '16px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                                 <h3 style={{ marginBottom: '12px' }}>Chat with PDFs</h3>
-                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                                    Ask questions and get answers with citations. (Coming in Phase 2)
-                                </p>
+
+                                <div style={{ flex: 1, overflowY: 'auto', marginBottom: '16px', padding: '12px', background: 'var(--bg-app)', borderRadius: '8px', minHeight: '300px' }}>
+                                    {chatHistory.length === 0 && <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', textAlign: 'center', marginTop: '32px' }}>Ask questions about your PDFs. Answers include citations!</p>}
+                                    {chatHistory.map((msg, idx) => (
+                                        <div key={idx} style={{
+                                            marginBottom: '12px',
+                                            padding: '10px',
+                                            background: msg.role === 'user' ? 'var(--primary)' : 'white',
+                                            color: msg.role === 'user' ? 'white' : 'var(--text-main)',
+                                            borderRadius: '8px',
+                                            fontSize: '0.9rem'
+                                        }}>
+                                            <strong>{msg.role === 'user' ? 'You' : 'AI'}:</strong>
+                                            <div style={{ marginTop: '4px', lineHeight: '1.6' }}>
+                                                {msg.role === 'assistant' ? renderTextWithCitations(msg.content) : msg.content}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {generating && <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>AI is thinking...</p>}
+                                </div>
+
+                                <form onSubmit={handleSendChat} style={{ display: 'flex', gap: '8px' }}>
+                                    <input
+                                        className="input-field"
+                                        value={chatInput}
+                                        onChange={e => setChatInput(e.target.value)}
+                                        placeholder="Ask a question..."
+                                        disabled={generating}
+                                        style={{ flex: 1, padding: '8px' }}
+                                    />
+                                    <button type="submit" className="btn btn-primary" disabled={generating || !chatInput.trim()}>
+                                        <Send size={16} />
+                                    </button>
+                                </form>
                             </div>
                         )}
+
+                        {/* NOTES TAB */}
                         {activeTab === 'notes' && (
-                            <div style={{ padding: '16px' }}>
+                            <div>
                                 <h3 style={{ marginBottom: '12px' }}>Guided Notes</h3>
-                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                                    Generate study notes with citations. (Coming in Phase 2)
-                                </p>
+
+                                <div style={{ marginBottom: '16px' }}>
+                                    <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Format:</label>
+                                    <select className="input-field" value={noteFormat} onChange={e => setNoteFormat(e.target.value)} style={{ marginTop: '4px', padding: '6px' }}>
+                                        <option value="outline">Outline</option>
+                                        <option value="cornell">Cornell Notes</option>
+                                        <option value="fill-in">Fill-in-the-Blank</option>
+                                        <option value="eli5">ELI5 Summary</option>
+                                    </select>
+                                </div>
+
+                                <button className="btn btn-primary" onClick={handleGenerateNotes} disabled={generating} style={{ width: '100%', marginBottom: '16px' }}>
+                                    {generating ? <><RefreshCw className="spin" size={16} /> Generating...</> : <>< Brain size={16} /> Generate Notes</>}
+                                </button>
+
+                                {generatedNotes && (
+                                    <div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                                            <input
+                                                className="input-field"
+                                                value={notesTitle}
+                                                onChange={e => setNotesTitle(e.target.value)}
+                                                placeholder="Notes title"
+                                                style={{ flex: 1, padding: '6px' }}
+                                            />
+                                            <button className="btn btn-secondary" onClick={handleSaveNotes}>
+                                                <Save size={16} />
+                                            </button>
+                                        </div>
+
+                                        <div style={{ background: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                                            {generatedNotes.sections?.map((section, idx) => (
+                                                <div key={idx} style={{ marginBottom: '20px' }}>
+                                                    <h4 style={{ marginBottom: '8px', color: 'var(--primary)' }}>{section.heading}</h4>
+                                                    <div style={{ lineHeight: '1.7' }}>
+                                                        <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                                            {section.content}
+                                                        </ReactMarkdown>
+                                                    </div>
+                                                    {section.citations && section.citations.length > 0 && (
+                                                        <div style={{ marginTop: '8px', fontSize: '0.8rem' }}>
+                                                            {section.citations.map((cite, cIdx) => (
+                                                                <PDFCitation key={cIdx} pdfName={cite.pdf_name} page={cite.page} onClick={handleCitationClick} />
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {!generatedNotes && !generating && (
+                                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', textAlign: 'center', marginTop: '32px' }}>
+                                        Select scope/pages and click Generate to create notes with citations.
+                                    </p>
+                                )}
                             </div>
                         )}
+
+                        {/* QUIZ TAB */}
                         {activeTab === 'quiz' && (
-                            <div style={{ padding: '16px' }}>
+                            <div>
                                 <h3 style={{ marginBottom: '12px' }}>Practice Quiz</h3>
-                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                                    Generate quizzes from selected pages. (Coming in Phase 2)
-                                </p>
+
+                                <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                    <div>
+                                        <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Questions:</label>
+                                        <input
+                                            className="input-field"
+                                            type="number"
+                                            value={quizSettings.numQuestions}
+                                            onChange={e => setQuizSettings({ ...quizSettings, numQuestions: parseInt(e.target.value) })}
+                                            style={{ marginTop: '4px', padding: '6px' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Difficulty:</label>
+                                        <select
+                                            className="input-field"
+                                            value={quizSettings.difficulty}
+                                            onChange={e => setQuizSettings({ ...quizSettings, difficulty: e.target.value })}
+                                            style={{ marginTop: '4px', padding: '6px' }}
+                                        >
+                                            <option value="easy">Easy</option>
+                                            <option value="medium">Medium</option>
+                                            <option value="hard">Hard</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <button className="btn btn-primary" onClick={handleGenerateQuiz} disabled={generating} style={{ width: '100%', marginBottom: '16px' }}>
+                                    {generating ? <><RefreshCw className="spin" size={16} /> Generating...</> : <><Brain size={16} /> Generate Quiz</>}
+                                </button>
+
+                                {generatedQuiz && (
+                                    <div>
+                                        {generatedQuiz.questions?.map((q, idx) => (
+                                            <div key={idx} style={{ marginBottom: '20px', padding: '16px', background: 'white', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                                                <div style={{ fontWeight: 'bold', marginBottom: '12px' }}>
+                                                    <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                                        {`${idx + 1}. ${q.question}`}
+                                                    </ReactMarkdown>
+                                                </div>
+
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
+                                                    {q.options.map((opt, oIdx) => (
+                                                        <button
+                                                            key={oIdx}
+                                                            onClick={() => setQuizAnswers({ ...quizAnswers, [idx]: oIdx })}
+                                                            style={{
+                                                                padding: '10px',
+                                                                borderRadius: '6px',
+                                                                border: '1px solid var(--border)',
+                                                                background: quizAnswers[idx] === oIdx ? (oIdx === q.correctAnswer ? '#dcfce7' : '#fee2e2') : 'white',
+                                                                textAlign: 'left',
+                                                                cursor: 'pointer',
+                                                                fontSize: '0.9rem'
+                                                            }}
+                                                        >
+                                                            {opt}
+                                                        </button>
+                                                    ))}
+                                                </div>
+
+                                                {quizAnswers[idx] !== undefined && (
+                                                    <div style={{ marginTop: '8px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                                        <strong>Explanation:</strong> {q.explanation}
+                                                    </div>
+                                                )}
+
+                                                {q.citation && (
+                                                    <div style={{ marginTop: '8px' }}>
+                                                        <PDFCitation pdfName={q.citation.pdf_name} page={q.citation.page} onClick={handleCitationClick} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {!generatedQuiz && !generating && (
+                                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', textAlign: 'center', marginTop: '32px' }}>
+                                        Configure settings and click Generate to create a quiz with cited questions.
+                                    </p>
+                                )}
                             </div>
                         )}
+
+                        {/* SAVED TAB */}
                         {activeTab === 'saved' && (
-                            <div style={{ padding: '16px' }}>
+                            <div>
                                 <h3 style={{ marginBottom: '12px' }}>Saved Content</h3>
                                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                                    Your saved notes, quizzes, and flashcards. (Coming in Phase 2)
+                                    Your saved notes, quizzes, and flashcards will appear here. (Phase 3)
                                 </p>
                             </div>
                         )}
