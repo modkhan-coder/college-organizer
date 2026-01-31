@@ -23,6 +23,8 @@ import Privacy from './pages/Privacy';
 import PricingPage from './pages/PricingPage';
 import { TourProvider } from './context/TourContext';
 
+import Onboarding from './pages/Onboarding';
+
 function App() {
   const { user, loading } = useApp();
 
@@ -32,6 +34,13 @@ function App() {
 
   if (!user) {
     return <Auth />;
+  }
+
+  // FORCE ONBOARDING: Check if profile is complete
+  // logic: if school or major is missing, force Onboarding page.
+  const isProfileComplete = user.school && user.major;
+  if (!isProfileComplete) {
+    return <Onboarding />;
   }
 
   return (
