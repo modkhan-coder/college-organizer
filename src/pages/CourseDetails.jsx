@@ -352,7 +352,7 @@ const CourseDetails = () => {
                             borderRadius: '4px',
                             fontWeight: 'bold'
                         }}>
-                            PRO
+                            PREMIUM
                         </span>
                     )}
                 </button>
