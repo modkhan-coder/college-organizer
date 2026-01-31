@@ -8,7 +8,7 @@ import PDFViewer from '../components/PDFViewer';
 import PDFCitation from '../components/PDFCitation';
 import {
     ArrowLeft, Upload, FileText, Trash2, BookOpen,
-    Brain, MessageSquare, Save, Star, RefreshCw, Send
+    Brain, MessageSquare, Save, Star, RefreshCw, Send, HelpCircle
 } from 'lucide-react';
 
 // Math & Markdown Rendering
