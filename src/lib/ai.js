@@ -210,7 +210,7 @@ export const generateGuidedNotes = async (chunks, courseName, format = 'outline'
 
     const formatInstructions = {
         outline: 'Create hierarchical outline notes with main topics and subtopics.',
-        cornell: 'Create Cornell-style notes with Cues, Notes, and Summary sections.',
+        cornell: 'Create Cornell-style notes with TWO columns: "cues" (left - questions/keywords) and "notes" (right - detailed content), plus a "summary" at the end of each section.',
         'fill-in': 'Create fill-in-the-blank study notes where KEY TERMS are replaced with underscores (_____). Example: "Factoring is the process of finding _____ whose product equals a given polynomial."',
         eli5: 'Create a simple explanation suitable for someone new to the topic (Explain Like I\'m 5).'
     };
@@ -225,6 +225,23 @@ FILL-IN-THE-BLANK RULES (CRITICAL):
 - Minimum 3-5 blanks per section
 ` : '';
 
+    const cornellExample = format === 'cornell' ? `
+
+CORNELL NOTES RULES (CRITICAL):
+- Each section MUST have "cues", "notes", and "summary" fields
+- "cues" = questions or keywords (3-5 bullet points)
+- "notes" = detailed explanations with citations
+- "summary" = 1-2 sentence recap of the section
+- Example structure:
+  {
+    "heading": "Factoring Basics",
+    "cues": "What is factoring?\\nWhat is a prime polynomial?\\nHow to identify factors?",
+    "notes": "Factoring is the process... [PDF p.2]",
+    "summary": "Factoring finds polynomials whose product equals the original.",
+    "citations": [...]
+  }
+` : '';
+
     const prompt = `You are an expert note-taker. Generate ${format} notes for "${courseName}" based ONLY on the provided excerpts.
 
 CRITICAL CITATION RULES:
@@ -232,7 +249,7 @@ CRITICAL CITATION RULES:
 - Citations must reference ONLY the provided sources
 - If a fact spans multiple sources, cite all: [Bio101.pdf p.12, Lecture3.pdf p.5]
 
-FORMAT: ${formatInstructions[format] || formatInstructions.outline}${fillInExample}
+FORMAT: ${formatInstructions[format] || formatInstructions.outline}${fillInExample}${cornellExample}
 
 Return ONLY valid JSON in this structure:
 {
@@ -240,7 +257,10 @@ Return ONLY valid JSON in this structure:
   "sections": [
     {
       "heading": "Section Heading",
-      "content": "Section content with inline [PDFName p.X] citations after each statement.",
+      ${format === 'cornell'
+            ? '"cues": "Question 1?\\nQuestion 2?\\nKeyword",\n      "notes": "Detailed content with [PDFName p.X] citations.",\n      "summary": "Brief recap of this section.",'
+            : '"content": "Section content with inline [PDFName p.X] citations after each statement.",'
+        }
       "citations": [{"pdf_name": "...", "page": 12}]
     }
   ]
