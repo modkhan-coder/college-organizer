@@ -211,9 +211,19 @@ export const generateGuidedNotes = async (chunks, courseName, format = 'outline'
     const formatInstructions = {
         outline: 'Create hierarchical outline notes with main topics and subtopics.',
         cornell: 'Create Cornell-style notes with Cues, Notes, and Summary sections.',
-        'fill-in': 'Create fill-in-the-blank study notes with key terms removed.',
-        eli5: 'Create a simple explanation suitable for someone new to the topic.'
+        'fill-in': 'Create fill-in-the-blank study notes where KEY TERMS are replaced with underscores (_____). Example: "Factoring is the process of finding _____ whose product equals a given polynomial."',
+        eli5: 'Create a simple explanation suitable for someone new to the topic (Explain Like I\'m 5).'
     };
+
+    const fillInExample = format === 'fill-in' ? `
+
+FILL-IN-THE-BLANK RULES (CRITICAL):
+- Replace EVERY important term, definition, or concept with _____ (5 underscores)
+- Do NOT write complete sentences with all information
+- Students should be able to test themselves by filling in the blanks
+- Example: "The _____ is determined first when factoring." NOT "The GCF is determined first."
+- Minimum 3-5 blanks per section
+` : '';
 
     const prompt = `You are an expert note-taker. Generate ${format} notes for "${courseName}" based ONLY on the provided excerpts.
 
@@ -222,7 +232,7 @@ CRITICAL CITATION RULES:
 - Citations must reference ONLY the provided sources
 - If a fact spans multiple sources, cite all: [Bio101.pdf p.12, Lecture3.pdf p.5]
 
-FORMAT: ${formatInstructions[format] || formatInstructions.outline}
+FORMAT: ${formatInstructions[format] || formatInstructions.outline}${fillInExample}
 
 Return ONLY valid JSON in this structure:
 {
