@@ -201,7 +201,7 @@ const PricingPage = () => {
                     <Feature included={true} text="Email Digests" />
                     <Feature included={false} text="Smart Study Plans (AI)" />
                     <Feature included={false} text="AI Study Schedule Generation" />
-                    <Feature included={false} text="Unlimited AI Quizzes" />
+                    <Feature included={false} text="AI Quizzes" />
                     <Feature included={false} text="Chat with Documents (PDF)" />
                     <Feature included={false} text="Priority Support" />
                 </div>
@@ -230,7 +230,7 @@ const PricingPage = () => {
                     <Feature included={true} text="50 AI Credits / mo (Plans, Quizzes, Chat)" />
                     <Feature included={true} text="Smart Study Plans (AI)" />
                     <Feature included={true} text="AI Study Schedule Generation" />
-                    <Feature included={true} text="Unlimited AI Quizzes" />
+                    <Feature included={true} text="AI Quizzes" />
                     <Feature included={true} text="Chat with Documents (PDF)" />
                     <Feature included={true} text="Priority Support" />
                     <Feature included={true} text="Early Access Features" />
