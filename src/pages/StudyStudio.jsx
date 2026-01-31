@@ -489,8 +489,6 @@ const StudyStudio = () => {
                                     <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Format:</label>
                                     <select className="input-field" value={noteFormat} onChange={e => setNoteFormat(e.target.value)} style={{ marginTop: '4px', padding: '6px' }}>
                                         <option value="outline">Outline</option>
-                                        <option value="cornell">Cornell Notes</option>
-                                        <option value="fill-in">Fill-in-the-Blank</option>
                                         <option value="eli5">ELI5 Summary</option>
                                     </select>
                                 </div>
