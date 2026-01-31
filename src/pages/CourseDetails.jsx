@@ -321,6 +321,28 @@ const CourseDetails = () => {
             <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: '24px', overflowX: 'auto' }}>
                 <TabButton id="overview" label="Overview" icon={<FileText size={18} />} activeTab={activeTab} setActiveTab={setActiveTab} />
                 <TabButton id="materials" label="Materials" icon={<Upload size={18} />} activeTab={activeTab} setActiveTab={setActiveTab} />
+                <button
+                    onClick={() => navigate(`/courses/${courseId}/studio`)}
+                    style={{
+                        flex: 1,
+                        minWidth: '140px',
+                        padding: '16px',
+                        background: 'linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)',
+                        border: 'none',
+                        borderBottom: '2px solid transparent',
+                        color: 'white',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        transition: 'all 0.2s',
+                        borderRadius: '4px 4px 0 0'
+                    }}
+                >
+                    <Brain size={18} /> PDF Studio ✨
+                </button>
                 <TabButton id="study_guide" label="Study Guide" icon={<Brain size={18} />} activeTab={activeTab} setActiveTab={setActiveTab} />
                 <TabButton id="quiz" label="Quiz" icon={<HelpCircle size={18} />} activeTab={activeTab} setActiveTab={setActiveTab} />
                 <TabButton id="chat" label="Chat" icon={<MessageSquare size={18} />} activeTab={activeTab} setActiveTab={setActiveTab} />
