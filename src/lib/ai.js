@@ -304,6 +304,14 @@ export const generateQuizWithCitations = async (chunks, courseName, settings = {
     ).join('\n\n');
 
     const prompt = `Generate a ${difficulty} practice quiz for "${courseName}" with ${numQuestions} questions.
+CRITICAL MATH & SOLUTION RULES:
+- For equations with MULTIPLE solutions (e.g., quadratics), ALL solutions are valid answers
+- When asking for "one solution", include ALL valid solutions in your explanation  
+- Example: For 4x² - 20x = 0, factoring gives 4x(x-5) = 0, so x = 0 OR x = 5. Both are correct.
+- If asking for "one solution", either valid solution is acceptable as the answer
+- ALWAYS double-check your math before generating questions
+- Use proper LaTeX: $x^2$, $\frac{a}{b}$, $\sqrt{x}$
+
 
 CITATION RULES:
 - Every question MUST cite its source: {"citation": {"pdf_name": "...", "page": 12}}
@@ -318,7 +326,7 @@ Return ONLY valid JSON:
       "question": "Question text with LaTeX $math$ if needed",
       "options": ["A", "B", "C", "D"],
       "correctAnswer": 0,
-      "explanation": "Why this is correct (cite source)",
+      "explanation": "Why this is correct. For multi-solution equations, mention ALL solutions. Cite source.",
       "citation": {"pdf_name": "Bio101.pdf", "page": 45}
     }
   ]
