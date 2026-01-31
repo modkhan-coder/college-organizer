@@ -50,6 +50,12 @@ const StudyStudio = () => {
     const [chatHistory, setChatHistory] = useState([]);
     const [chatInput, setChatInput] = useState('');
 
+    // Saved Content State
+    const [savedContent, setSavedContent] = useState([]);
+    const [savedFilter, setSavedFilter] = useState('all'); // 'all' | 'note' | 'quiz'
+    const [savedSearch, setSavedSearch] = useState('');
+    const [expandedCard, setExpandedCard] = useState(null);
+
     // Loading
     const [generating, setGenerating] = useState(false);
 
@@ -87,6 +93,7 @@ const StudyStudio = () => {
         if (found) {
             setCourse(found);
             fetchPDFs();
+            fetchSavedContent();
         }
     }, [courseId, courses]);
 
@@ -266,6 +273,71 @@ const StudyStudio = () => {
             });
 
             addNotification('Notes saved!', 'success');
+            fetchSavedContent(); // Refresh saved content list
+        } catch (error) {
+            addNotification(`Save failed: ${error.message}`, 'error');
+        }
+    };
+
+    // Fetch Saved Content
+    const fetchSavedContent = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('saved_content')
+                .select('*')
+                .eq('course_id', courseId)
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            setSavedContent(data || []);
+        } catch (error) {
+            console.error('Error fetching saved content:', error);
+        }
+    };
+
+    // Delete Saved Content
+    const handleDeleteSaved = async (id) => {
+        if (!confirm('Delete this saved content?')) return;
+
+        try {
+            const { error } = await supabase
+                .from('saved_content')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+            addNotification('Deleted!', 'success');
+            fetchSavedContent();
+        } catch (error) {
+            addNotification(`Delete failed: ${error.message}`, 'error');
+        }
+    };
+
+    // Filter Saved Content
+    const filteredSavedContent = savedContent.filter(item => {
+        const matchesType = savedFilter === 'all' || item.content_type === savedFilter;
+        const matchesSearch = !savedSearch || item.title?.toLowerCase().includes(savedSearch.toLowerCase());
+        return matchesType && matchesSearch;
+    });
+
+    // Save Quiz
+    const handleSaveQuiz = async () => {
+        if (!generatedQuiz) return;
+
+        try {
+            await supabase.from('saved_content').insert({
+                user_id: user.id,
+                course_id: courseId,
+                content_type: 'quiz',
+                title: `${course?.name} Quiz - ${new Date().toLocaleDateString()}`,
+                content: generatedQuiz,
+                pdf_ids: getScopedPDFIds(),
+                page_range: pageStart && pageEnd ? [parseInt(pageStart), parseInt(pageEnd)] : null
+            });
+
+            addNotification('Quiz saved!', 'success');
+            fetchSavedContent();
         } catch (error) {
             addNotification(`Save failed: ${error.message}`, 'error');
         }
@@ -557,8 +629,8 @@ const StudyStudio = () => {
                                                 placeholder="Notes title"
                                                 style={{ flex: 1, padding: '6px' }}
                                             />
-                                            <button className="btn btn-secondary" onClick={handleSaveNotes}>
-                                                <Save size={16} />
+                                            <button className="btn btn-primary" onClick={handleSaveNotes} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <Save size={16} /> Save
                                             </button>
                                         </div>
 
@@ -624,11 +696,16 @@ const StudyStudio = () => {
                                 </div>
 
                                 <button className="btn btn-primary" onClick={handleGenerateQuiz} disabled={generating} style={{ width: '100%', marginBottom: '16px' }}>
-                                    {generating ? <><RefreshCw className="spin" size={16} /> Generating...</> : <><Brain size={16} /> Generate Quiz</>}
+                                    {generating ? <><RefreshCw className="spin" size={16} /> Generating...</> : <><HelpCircle size={16} /> Generate Quiz</>}
                                 </button>
 
                                 {generatedQuiz && (
                                     <div>
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+                                            <button className="btn btn-primary" onClick={handleSaveQuiz} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <Save size={16} /> Save Quiz
+                                            </button>
+                                        </div>
                                         {generatedQuiz.questions?.map((q, idx) => (
                                             <div key={idx} style={{ marginBottom: '20px', padding: '16px', background: 'white', borderRadius: '8px', border: '1px solid var(--border)' }}>
                                                 <div style={{ fontWeight: 'bold', marginBottom: '12px' }}>
@@ -684,10 +761,141 @@ const StudyStudio = () => {
                         {/* SAVED TAB */}
                         {activeTab === 'saved' && (
                             <div>
-                                <h3 style={{ marginBottom: '12px' }}>Saved Content</h3>
-                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                                    Your saved notes, quizzes, and flashcards will appear here. (Phase 3)
-                                </p>
+                                <h3 style={{ marginBottom: '16px' }}>Saved Content</h3>
+
+                                {/* Filter & Search */}
+                                <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                                    <select
+                                        className="input-field"
+                                        value={savedFilter}
+                                        onChange={e => setSavedFilter(e.target.value)}
+                                        style={{ padding: '8px' }}
+                                    >
+                                        <option value="all">All Types</option>
+                                        <option value="note">Notes Only</option>
+                                        <option value="quiz">Quizzes Only</option>
+                                    </select>
+
+                                    <input
+                                        className="input-field"
+                                        type="text"
+                                        placeholder="Search by title..."
+                                        value={savedSearch}
+                                        onChange={e => setSavedSearch(e.target.value)}
+                                        style={{ flex: 1, padding: '8px' }}
+                                    />
+                                </div>
+
+                                {/* Saved Content List */}
+                                {filteredSavedContent.length > 0 ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        {filteredSavedContent.map(item => (
+                                            <div
+                                                key={item.id}
+                                                style={{
+                                                    padding: '16px',
+                                                    background: 'white',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid var(--border)',
+                                                    cursor: 'pointer'
+                                                }}
+                                                onClick={() => setExpandedCard(expandedCard === item.id ? null : item.id)}
+                                            >
+                                                {/* Card Header */}
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <span style={{
+                                                            padding: '4px 8px',
+                                                            borderRadius: '4px',
+                                                            fontSize: '0.75rem',
+                                                            fontWeight: 'bold',
+                                                            background: item.content_type === 'note' ? '#dbeafe' : '#fef3c7',
+                                                            color: item.content_type === 'note' ? '#1e40af' : '#92400e'
+                                                        }}>
+                                                            {item.content_type === 'note' ? 'NOTE' : 'QUIZ'}
+                                                        </span>
+                                                        <h4 style={{ margin: 0 }}>{item.title || 'Untitled'}</h4>
+                                                    </div>
+                                                    <button
+                                                        className="btn"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteSaved(item.id);
+                                                        }}
+                                                        style={{
+                                                            padding: '4px 12px',
+                                                            fontSize: '0.85rem',
+                                                            background: '#fee2e2',
+                                                            color: '#991b1b',
+                                                            border: 'none'
+                                                        }}
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+
+                                                {/* Card Meta */}
+                                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                                    {new Date(item.created_at).toLocaleDateString()} • {item.page_range ? `Pages ${item.page_range[0]}-${item.page_range[1]}` : 'All pages'}
+                                                </div>
+
+                                                {/* Expanded Content */}
+                                                {expandedCard === item.id && (
+                                                    <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+                                                        {item.content_type === 'note' ? (
+                                                            // Render Notes
+                                                            <div>
+                                                                {item.content.sections?.map((section, idx) => (
+                                                                    <div key={idx} style={{ marginBottom: '16px' }}>
+                                                                        <h4 style={{ marginBottom: '8px', color: 'var(--primary)' }}>{section.heading}</h4>
+                                                                        <div style={{ lineHeight: '1.7' }}>
+                                                                            <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                                                                {section.content}
+                                                                            </ReactMarkdown>
+                                                                        </div>
+                                                                        {section.citations && section.citations.length > 0 && (
+                                                                            <div style={{ marginTop: '8px', fontSize: '0.8rem' }}>
+                                                                                {section.citations.map((cite, cIdx) => (
+                                                                                    <PDFCitation key={cIdx} pdfName={cite.pdf_name} page={cite.page} onClick={handleCitationClick} />
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            // Render Quiz
+                                                            <div>
+                                                                {item.content.questions?.map((q, idx) => (
+                                                                    <div key={idx} style={{ marginBottom: '16px', padding: '12px', background: '#f9fafb', borderRadius: '6px' }}>
+                                                                        <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
+                                                                            <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                                                                {`${idx + 1}. ${q.question}`}
+                                                                            </ReactMarkdown>
+                                                                        </div>
+                                                                        <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                                                                            Answer: {q.options[q.correctAnswer]}
+                                                                        </div>
+                                                                        {q.citation && (
+                                                                            <div style={{ marginTop: '8px' }}>
+                                                                                <PDFCitation pdfName={q.citation.pdf_name} page={q.citation.page} onClick={handleCitationClick} />
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-secondary)' }}>
+                                        <Star size={48} style={{ opacity: 0.5, marginBottom: '16px' }} />
+                                        <p>No saved content yet. Generate notes or quizzes and click Save!</p>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
