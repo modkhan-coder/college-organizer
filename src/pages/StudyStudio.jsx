@@ -8,7 +8,8 @@ import PDFViewer from '../components/PDFViewer';
 import PDFCitation from '../components/PDFCitation';
 import {
     ArrowLeft, Upload, FileText, Trash2, BookOpen,
-    Brain, MessageSquare, Save, Star, RefreshCw, Send, HelpCircle
+    Brain, MessageSquare, Save, Star, RefreshCw, Send, HelpCircle,
+    Maximize2, Minimize2
 } from 'lucide-react';
 
 // Math & Markdown Rendering
@@ -30,6 +31,7 @@ const StudyStudio = () => {
     const [currentFileUrl, setCurrentFileUrl] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [activeTab, setActiveTab] = useState('chat');
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     // Scope & Page Range
     const [scope, setScope] = useState('this');
@@ -549,13 +551,40 @@ const StudyStudio = () => {
                 </div>
 
                 {/* Right Panel: Tabs */}
-                <div style={{ borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{
+                    borderLeft: '1px solid var(--border)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    ...(isFullscreen && { position: 'fixed', inset: 0, zIndex: 1000, background: 'var(--bg-app)', borderLeft: 'none' })
+                }}>
                     {/* Tab Headers */}
-                    <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)' }}>
+                    <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)', alignItems: 'center' }}>
                         <TabButton id="chat" label="Chat" icon={<MessageSquare size={16} />} activeTab={activeTab} setActiveTab={setActiveTab} />
                         <TabButton id="notes" label="Notes" icon={<BookOpen size={16} />} activeTab={activeTab} setActiveTab={setActiveTab} />
                         <TabButton id="quiz" label="Quiz" icon={<Brain size={16} />} activeTab={activeTab} setActiveTab={setActiveTab} />
                         <TabButton id="saved" label="Saved" icon={<Star size={16} />} activeTab={activeTab} setActiveTab={setActiveTab} />
+
+                        {/* Fullscreen Toggle */}
+                        <button
+                            onClick={() => setIsFullscreen(!isFullscreen)}
+                            style={{
+                                marginLeft: 'auto',
+                                padding: '8px 16px',
+                                background: isFullscreen ? 'var(--primary-light)' : 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: isFullscreen ? 'var(--primary)' : 'var(--text-secondary)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                fontSize: '0.85rem',
+                                transition: 'all 0.2s'
+                            }}
+                            title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen mode'}
+                        >
+                            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                        </button>
                     </div>
 
                     {/* Tab Content */}
