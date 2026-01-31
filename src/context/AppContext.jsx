@@ -343,7 +343,6 @@ export const AppProvider = ({ children }) => {
       credits: course.credits,
       color: course.color,
       grading_scale: course.gradingScale,
-      grading_scale: course.gradingScale,
       categories: course.categories,
       schedule: course.schedule
     };

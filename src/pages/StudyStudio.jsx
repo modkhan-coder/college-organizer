@@ -364,7 +364,7 @@ const StudyStudio = () => {
                                         <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>{pdf.num_pages} pages</div>
                                     </div>
                                     <button
-                                        onClick={(e) => { e.stop Propagation(); handleDelete(pdf); }}
+                                        onClick={(e) => { e.stopPropagation(); handleDelete(pdf); }}
                                         style={{ background: 'none', border: 'none', color: 'currentColor', cursor: 'pointer', padding: '4px', opacity: 0.7 }}
                                     >
                                         <Trash2 size={14} />

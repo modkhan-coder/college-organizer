@@ -215,7 +215,6 @@ const Calendar = () => {
                                         </div>
                                         <div style={{
                                             fontSize: '1.5rem', fontWeight: 'bold',
-                                            color: isTodayDate ? 'var(--primary)' : 'var(--text-main)',
                                             width: '36px', height: '36px', lineHeight: '36px',
                                             margin: '4px auto 0', borderRadius: '50%',
                                             background: isTodayDate ? 'var(--primary)' : 'transparent',
