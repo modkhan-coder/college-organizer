@@ -53,6 +53,35 @@ const StudyStudio = () => {
     // Loading
     const [generating, setGenerating] = useState(false);
 
+    // Persistence helpers
+    const getStorageKey = (pdfId, type) => `studio_${courseId}_${pdfId}_${type}`;
+
+    const loadPersistedContent = (pdfId) => {
+        try {
+            const savedNotes = localStorage.getItem(getStorageKey(pdfId, 'notes'));
+            const savedQuiz = localStorage.getItem(getStorageKey(pdfId, 'quiz'));
+            const savedChat = localStorage.getItem(getStorageKey(pdfId, 'chat'));
+
+            if (savedNotes) {
+                const parsed = JSON.parse(savedNotes);
+                setGeneratedNotes(parsed.notes);
+                setNotesTitle(parsed.title || '');
+            }
+            if (savedQuiz) setGeneratedQuiz(JSON.parse(savedQuiz));
+            if (savedChat) setChatHistory(JSON.parse(savedChat));
+        } catch (error) {
+            console.error('Error loading persisted content:', error);
+        }
+    };
+
+    const saveContent = (pdfId, type, content) => {
+        try {
+            localStorage.setItem(getStorageKey(pdfId, type), JSON.stringify(content));
+        } catch (error) {
+            console.error('Error saving content:', error);
+        }
+    };
+
     useEffect(() => {
         const found = courses.find(c => c.id === courseId);
         if (found) {
@@ -78,6 +107,13 @@ const StudyStudio = () => {
     };
 
     const handleSelectPDF = async (pdf) => {
+        // Clear previous PDF's content when switching
+        if (selectedPDF && selectedPDF.id !== pdf.id) {
+            setGeneratedNotes(null);
+            setGeneratedQuiz(null);
+            setChatHistory([]);
+        }
+
         setSelectedPDF(pdf);
 
         const { data } = await supabase.storage
@@ -87,6 +123,9 @@ const StudyStudio = () => {
         if (data?.signedUrl) {
             setCurrentFileUrl(data.signedUrl);
         }
+
+        // Load persisted content for this PDF
+        loadPersistedContent(pdf.id);
     };
 
     const handleUpload = async (e) => {
@@ -247,6 +286,11 @@ const StudyStudio = () => {
             setGeneratedQuiz(quiz);
             setQuizAnswers({});
             addNotification('Quiz generated!', 'success');
+
+            // Persist to localStorage
+            if (selectedPDF) {
+                saveContent(selectedPDF.id, 'quiz', quiz);
+            }
         } catch (error) {
             console.error('Quiz error:', error);
             addNotification(`Error: ${error.message}`, 'error');
@@ -270,7 +314,13 @@ const StudyStudio = () => {
             const { chunks } = await searchContextWithPages(courseId, pdfIds, pageStart, pageEnd);
 
             const response = await chatWithPDFCitations([...chatHistory, userMessage], chunks);
-            setChatHistory(prev => [...prev, { role: 'assistant', content: response }]);
+            const newHistory = [...chatHistory, userMessage, { role: 'assistant', content: response }];
+            setChatHistory(newHistory);
+
+            // Persist to localStorage
+            if (selectedPDF) {
+                saveContent(selectedPDF.id, 'chat', newHistory);
+            }
         } catch (error) {
             addNotification(`Chat error: ${error.message}`, 'error');
         } finally {
