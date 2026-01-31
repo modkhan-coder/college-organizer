@@ -61,6 +61,98 @@ const StudyStudio = () => {
     // Loading
     const [generating, setGenerating] = useState(false);
 
+    // Premium Check - Show paywall if not premium
+    if (!isPremium) {
+        return (
+            <div className="page-container">
+                <div style={{
+                    maxWidth: '600px',
+                    margin: '80px auto',
+                    textAlign: 'center',
+                    padding: '48px 32px',
+                    background: 'white',
+                    borderRadius: '16px',
+                    border: '2px solid var(--primary)',
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                }}>
+                    <div style={{
+                        width: '80px',
+                        height: '80px',
+                        background: 'var(--primary-light)',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto 24px'
+                    }}>
+                        <Brain size={40} style={{ color: 'var(--primary)' }} />
+                    </div>
+
+                    <h1 style={{ fontSize: '2rem', marginBottom: '16px', color: 'var(--text)' }}>
+                        PDF Study Studio
+                    </h1>
+                    <p style={{ fontSize: '1.1rem', color: 'var(--text-secondary)', marginBottom: '32px', lineHeight: '1.6' }}>
+                        Unlock citation-aware AI features with <strong>Premium</strong>
+                    </p>
+
+                    <div style={{
+                        background: 'var(--bg-app)',
+                        padding: '24px',
+                        borderRadius: '12px',
+                        marginBottom: '32px',
+                        textAlign: 'left'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'start', gap: '12px', marginBottom: '16px' }}>
+                            <span style={{ color: 'var(--primary)', fontSize: '1.5rem' }}>✨</span>
+                            <div>
+                                <strong>Guided Notes</strong> with page citations
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'start', gap: '12px', marginBottom: '16px' }}>
+                            <span style={{ color: 'var(--primary)', fontSize: '1.5rem' }}>❓</span>
+                            <div>
+                                <strong>Practice Quizzes</strong> with explanations & sources
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'start', gap: '12px', marginBottom: '16px' }}>
+                            <span style={{ color: 'var(--primary)', fontSize: '1.5rem' }}>💬</span>
+                            <div>
+                                <strong>Chat with PDFs</strong> - Ask questions, get cited answers
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
+                            <span style={{ color: 'var(--primary)', fontSize: '1.5rem' }}>💾</span>
+                            <div>
+                                <strong>Save & Reuse</strong> your study materials forever
+                            </div>
+                        </div>
+                    </div>
+
+                    <button
+                        className="btn btn-primary"
+                        onClick={() => navigate('/pricing')}
+                        style={{
+                            fontSize: '1.1rem',
+                            padding: '14px 32px',
+                            marginBottom: '16px',
+                            width: '100%'
+                        }}
+                    >
+                        Upgrade to Premium
+                    </button>
+
+                    <button
+                        className="btn btn-secondary"
+                        onClick={() => navigate(`/courses/${courseId}`)}
+                        style={{ width: '100%' }}
+                    >
+                        Back to Course
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     // Persistence helpers
     const getStorageKey = (pdfId, type) => `studio_${courseId}_${pdfId}_${type}`;
 

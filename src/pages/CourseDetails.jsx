@@ -322,26 +322,39 @@ const CourseDetails = () => {
                 <TabButton id="overview" label="Overview" icon={<FileText size={18} />} activeTab={activeTab} setActiveTab={setActiveTab} />
                 <TabButton id="materials" label="Materials" icon={<Upload size={18} />} activeTab={activeTab} setActiveTab={setActiveTab} />
                 <button
-                    onClick={() => navigate(`/courses/${courseId}/studio`)}
+                    onClick={() => navigate(isPremium ? `/courses/${courseId}/studio` : '/pricing')}
                     style={{
                         flex: 1,
-                        minWidth: '140px',
-                        padding: '16px',
-                        background: 'linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)',
-                        border: 'none',
-                        borderBottom: '2px solid transparent',
-                        color: 'white',
-                        fontWeight: 'bold',
+                        padding: '12px 16px',
+                        background: isPremium ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'var(--bg-app)',
+                        color: isPremium ? 'white' : 'var(--text-secondary)',
+                        border: isPremium ? 'none' : '1px solid var(--border)',
+                        borderRadius: '8px',
+                        fontSize: '0.95rem',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: '8px',
+                        fontWeight: '600',
                         transition: 'all 0.2s',
-                        borderRadius: '4px 4px 0 0'
+                        borderRadius: '4px 4px 0 0',
+                        position: 'relative'
                     }}
                 >
                     <Brain size={18} /> PDF Studio ✨
+                    {!isPremium && (
+                        <span style={{
+                            fontSize: '0.7rem',
+                            padding: '2px 6px',
+                            background: 'var(--primary)',
+                            color: 'white',
+                            borderRadius: '4px',
+                            fontWeight: 'bold'
+                        }}>
+                            PRO
+                        </span>
+                    )}
                 </button>
             </div>
 
@@ -486,11 +499,11 @@ const CourseDetails = () => {
                     </div>
                 )}
 
-                
 
-                
 
-                
+
+
+
             </div>
         </div>
     );
