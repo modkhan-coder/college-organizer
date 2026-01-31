@@ -343,6 +343,9 @@ const CourseDetails = () => {
                 >
                     <Brain size={18} /> PDF Studio ✨
                 </button>
+            </div>
+
+            {/* Content */}
             <div className="card" style={{ minHeight: '400px' }}>
                 {activeTab === 'overview' && (
                     <div>
@@ -483,9 +486,13 @@ const CourseDetails = () => {
                     </div>
                 )}
 
-                {activeTab === 'study_guide' && (
-                    <div style={{ position: 'relative', minHeight: '400px' }}>
-                        {!isPremium && (
+                
+
+                
+
+                
+            </div>
+        </div>
     );
 };
 
