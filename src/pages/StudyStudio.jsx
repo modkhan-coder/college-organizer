@@ -576,7 +576,7 @@ const StudyStudio = () => {
         try {
             const pdfIds = getScopedPDFIds();
             const { chunks } = await searchContextWithPages(courseId, pdfIds, pageStart, pageEnd);
-            const response = await chatWithPDFCitations(chunks, chatHistory, userMessage, course.name);
+            const response = await chatWithPDFCitations([...chatHistory, { role: 'user', content: userMessage }], chunks);
             setChatHistory(prev => [...prev, { role: 'assistant', content: response }]);
 
             // Persist
