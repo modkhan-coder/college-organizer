@@ -225,6 +225,9 @@ const StudyStudio = () => {
 
         setSelectedPDF(pdf);
 
+        // Load persisted content for this PDF
+        loadPersistedContent(pdf.id);
+
         const { data } = await supabase.storage
             .from('course_materials')
             .createSignedUrl(pdf.file_path, 3600);
