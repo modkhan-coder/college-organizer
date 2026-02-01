@@ -314,6 +314,10 @@ const StudyStudio = () => {
     const handleCitationClick = (pdfName, page) => {
         console.log('Citation clicked:', { pdfName, page, availablePDFs: pdfFiles.map(p => p.file_name) });
 
+        // Normalize whitespace (multiple spaces to single space)
+        const normalize = (name) => name.trim().replace(/\s+/g, ' ');
+        const searchName = normalize(pdfName);
+        
         // Try exact match first
         let pdf = pdfFiles.find(p => p.file_name === pdfName);
 
