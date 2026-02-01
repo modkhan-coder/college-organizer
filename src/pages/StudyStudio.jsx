@@ -312,14 +312,35 @@ const StudyStudio = () => {
     };
 
     const handleCitationClick = (pdfName, page) => {
-        const pdf = pdfFiles.find(p => p.file_name === pdfName);
+        console.log('Citation clicked:', { pdfName, page, availablePDFs: pdfFiles.map(p => p.file_name) });
+
+        // Try exact match first
+        let pdf = pdfFiles.find(p => p.file_name === pdfName);
+
+        // If no exact match, try case-insensitive match
+        if (!pdf) {
+            pdf = pdfFiles.find(p => p.file_name.toLowerCase() === pdfName.toLowerCase());
+        }
+
+        // If still no match, try partial match (in case of truncated names)
+        if (!pdf) {
+            pdf = pdfFiles.find(p => p.file_name.includes(pdfName) || pdfName.includes(p.file_name));
+        }
+
         if (pdf) {
+            console.log('PDF found, selecting and jumping to page', page);
             handleSelectPDF(pdf);
+            // Give PDF viewer time to load
             setTimeout(() => {
                 if (window.jumpToPDFPage) {
                     window.jumpToPDFPage(page);
+                } else {
+                    console.error('window.jumpToPDFPage not available');
                 }
             }, 500);
+        } else {
+            console.error('PDF not found:', pdfName);
+            addNotification(`PDF "${pdfName}" not found`, 'error');
         }
     };
 
