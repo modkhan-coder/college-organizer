@@ -24,7 +24,7 @@ serve(async (req) => {
         // Call OpenAI Whisper API
         const whisperFormData = new FormData()
         whisperFormData.append('file', new Blob([audioBlob], { type: 'audio/webm' }), 'recording.webm')
-    whisper FormData.append('model', 'whisper-1')
+        whisperFormData.append('model', 'whisper-1')
 
         const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
             method: 'POST',
