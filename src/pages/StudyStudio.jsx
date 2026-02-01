@@ -317,13 +317,18 @@ const StudyStudio = () => {
         // Normalize whitespace (multiple spaces to single space)
         const normalize = (name) => name.trim().replace(/\s+/g, ' ');
         const searchName = normalize(pdfName);
-        
+
         // Try exact match first
         let pdf = pdfFiles.find(p => p.file_name === pdfName);
 
-        // If no exact match, try case-insensitive match
+        // Try normalized match (handles multiple spaces)
         if (!pdf) {
-            pdf = pdfFiles.find(p => p.file_name.toLowerCase() === pdfName.toLowerCase());
+            pdf = pdfFiles.find(p => normalize(p.file_name) === searchName);
+        }
+
+        // Try case-insensitive + normalized
+        if (!pdf) {
+            pdf = pdfFiles.find(p => normalize(p.file_name).toLowerCase() === searchName.toLowerCase());
         }
 
         // If still no match, try partial match (in case of truncated names)
