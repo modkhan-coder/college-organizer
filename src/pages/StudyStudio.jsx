@@ -9,7 +9,7 @@ import PDFCitation from '../components/PDFCitation';
 import {
     ArrowLeft, Upload, FileText, Trash2, BookOpen,
     Brain, MessageSquare, Save, Star, RefreshCw, Send, HelpCircle,
-    Maximize2, Minimize2
+    Maximize2, Minimize2, Mic, MicOff
 } from 'lucide-react';
 
 // Math & Markdown Rendering
@@ -62,6 +62,11 @@ const StudyStudio = () => {
     const [generating, setGenerating] = useState(false);
     const [pdfCredits, setPdfCredits] = useState(50);
     const [creditsResetAt, setCreditsResetAt] = useState(null);
+
+    // Voice recording
+    const [isRecording, setIsRecording] = useState(false);
+    const [mediaRecorder, setMediaRecorder] = useState(null);
+    const [recordingTime, setRecordingTime] = useState(0);
 
     // Premium Check - Show paywall if not premium
     if (!isPremium) {
@@ -610,7 +615,6 @@ const StudyStudio = () => {
             );
             lastIndex = match.index + match[0].length;
         }
-
         if (lastIndex < text.length) {
             parts.push(text.substring(lastIndex));
         }
@@ -618,6 +622,81 @@ const StudyStudio = () => {
         return parts;
     };
 
+    // Voice Recording
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const recorder = new MediaRecorder(stream);
+            const audioChunks = [];
+
+            recorder.ondataavailable = (e) => {
+                audioChunks.push(e.data);
+            };
+
+            recorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                stream.getTracks().forEach(track => track.stop());
+
+                // Transcribe audio
+                await transcribeAudio(audioBlob);
+            };
+
+            recorder.start();
+            setMediaRecorder(recorder);
+            setIsRecording(true);
+            setRecordingTime(0);
+
+            // Start timer
+            const interval = setInterval(() => {
+                setRecordingTime(prev => prev + 1);
+            }, 1000);
+
+            // Store interval for cleanup
+            recorder.intervalId = interval;
+        } catch (error) {
+            console.error('Microphone access error:', error);
+            addNotification('Microphone access denied', 'error');
+        }
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            clearInterval(mediaRecorder.intervalId);
+            mediaRecorder.stop();
+            setIsRecording(false);
+            setRecordingTime(0);
+        }
+    };
+
+    const transcribeAudio = async (audioBlob) => {
+        setGenerating(true);
+        try {
+            // Convert blob to File
+            const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' });
+
+            // Call Whisper API via Supabase Edge Function
+            const formData = new FormData();
+            formData.append('audio', audioFile);
+
+            const { data, error } = await supabase.functions.invoke('transcribe-audio', {
+                body: formData
+            });
+
+            if (error) throw error;
+
+            if (data?.text) {
+                setChatInput(data.text);
+                addNotification('Transcribed!', 'success');
+            }
+        } catch (error) {
+            console.error('Transcription error:', error);
+            addNotification('Transcription failed', 'error');
+        } finally {
+            setGenerating(false);
+        }
+    };
+
+    // Return component
     if (!course) return <div style={{ padding: '24px' }}>Loading...</div>;
 
     return (
@@ -824,16 +903,63 @@ const StudyStudio = () => {
                                     {generating && <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>AI is thinking...</p>}
                                 </div>
 
+                                {/* Recording indicator */}
+                                {isRecording && (
+                                    <div style={{
+                                        padding: '12px',
+                                        background: '#fee2e2',
+                                        borderRadius: '8px',
+                                        marginBottom: '12px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '12px'
+                                    }}>
+                                        <div style={{
+                                            width: '12px',
+                                            height: '12px',
+                                            background: '#ef4444',
+                                            borderRadius: '50%',
+                                            animation: 'pulse 1.5s ease-in-out infinite'
+                                        }} />
+                                        <span style={{ color: '#991b1b', fontWeight: '500' }}>
+                                            Recording... {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={stopRecording}
+                                            className="btn btn-secondary"
+                                            style={{ marginLeft: 'auto', padding: '6px 12px' }}
+                                        >
+                                            Stop & Transcribe
+                                        </button>
+                                    </div>
+                                )}
+
                                 <form onSubmit={handleSendChat} style={{ display: 'flex', gap: '8px' }}>
                                     <input
                                         className="input-field"
                                         value={chatInput}
                                         onChange={e => setChatInput(e.target.value)}
-                                        placeholder="Ask a question..."
-                                        disabled={generating}
+                                        placeholder={isRecording ? "Recording..." : "Ask a question..."}
+                                        disabled={generating || isRecording}
                                         style={{ flex: 1, padding: '8px' }}
                                     />
-                                    <button type="submit" className="btn btn-primary" disabled={generating || !chatInput.trim()}>
+
+                                    {/* Microphone button */}
+                                    {!isRecording && (
+                                        <button
+                                            type="button"
+                                            onClick={startRecording}
+                                            className="btn btn-secondary"
+                                            disabled={generating}
+                                            title="Voice input"
+                                            style={{ padding: '8px 12px' }}
+                                        >
+                                            <Mic size={18} />
+                                        </button>
+                                    )}
+
+                                    <button type="submit" className="btn btn-primary" disabled={generating || !chatInput.trim() || isRecording}>
                                         <Send size={16} />
                                     </button>
                                 </form>
