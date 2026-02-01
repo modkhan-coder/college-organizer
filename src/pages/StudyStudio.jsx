@@ -387,6 +387,12 @@ const StudyStudio = () => {
             const notes = await generateGuidedNotes(chunks, course.name, noteFormat);
             setGeneratedNotes(notes);
             setNotesTitle(notes.title || 'Untitled Notes');
+
+            // Save to localStorage
+            if (selectedPDF) {
+                saveContent(selectedPDF.id, 'notes', { notes, title: notes.title || 'Untitled Notes' });
+            }
+
             addNotification('Notes generated!', 'success');
         } catch (error) {
             console.error('Notes error:', error);
