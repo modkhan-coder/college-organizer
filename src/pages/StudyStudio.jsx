@@ -165,17 +165,35 @@ const StudyStudio = () => {
 
     const loadPersistedContent = (pdfId) => {
         try {
+            console.log('Loading persisted content for PDF:', pdfId);
             const savedNotes = localStorage.getItem(getStorageKey(pdfId, 'notes'));
             const savedQuiz = localStorage.getItem(getStorageKey(pdfId, 'quiz'));
             const savedChat = localStorage.getItem(getStorageKey(pdfId, 'chat'));
 
+            console.log('Saved notes:', savedNotes);
+            console.log('Saved quiz:', savedQuiz);
+            console.log('Saved chat:', savedChat);
+
             if (savedNotes) {
                 const parsed = JSON.parse(savedNotes);
+                console.log('Parsed notes:', parsed);
                 setGeneratedNotes(parsed.notes);
                 setNotesTitle(parsed.title || '');
+            } else {
+                // Clear notes if no saved data
+                setGeneratedNotes(null);
+                setNotesTitle('');
             }
-            if (savedQuiz) setGeneratedQuiz(JSON.parse(savedQuiz));
-            if (savedChat) setChatHistory(JSON.parse(savedChat));
+            if (savedQuiz) {
+                setGeneratedQuiz(JSON.parse(savedQuiz));
+            } else {
+                setGeneratedQuiz(null);
+            }
+            if (savedChat) {
+                setChatHistory(JSON.parse(savedChat));
+            } else {
+                setChatHistory([]);
+            }
         } catch (error) {
             console.error('Error loading persisted content:', error);
         }
