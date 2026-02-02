@@ -1,9 +1,9 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import * as pdfjsLib from 'https://esm.sh/pdfjs-dist@3.11.174/build/pdf.js'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -53,35 +53,59 @@ serve(async (req) => {
 
         console.log('PDF downloaded, size:', fileData.size)
 
-        // Convert blob to ArrayBuffer for pdf.js
+        // Convert PDF to base64
         const arrayBuffer = await fileData.arrayBuffer()
-        const uint8Array = new Uint8Array(arrayBuffer)
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
 
-        console.log('Loading PDF document...')
+        console.log('PDF converted to base64, calling OpenAI for extraction...')
 
-        // Load PDF with pdf.js
-        const loadingTask = pdfjsLib.getDocument({ data: uint8Array })
-        const pdf = await loadingTask.promise
+        // Use OpenAI's API to extract text from PDF
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${openaiApiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'gpt-4o',
+                messages: [
+                    {
+                        role: 'user',
+                        content: `Please extract ALL text from this PDF document. Return ONLY the extracted text, maintaining the original structure and formatting as much as possible. Do not add any commentary or analysis.\n\nPDF Base64:\n${base64.substring(0, 100000)}` // Limit to ~100KB
+                    }
+                ],
+                max_tokens: 16000
+            })
+        })
 
-        console.log(`PDF loaded, ${pdf.numPages} pages`)
+        if (!response.ok) {
+            const error = await response.text()
+            throw new Error(`OpenAI API error: ${error}`)
+        }
 
-        // Extract text from all pages
+        const data = await response.json()
+        const extractedText = data.choices[0].message.content
+
+        console.log(`Extracted ${extractedText.length} characters of text`)
+
+        // Split into pages (approximate - we'll treat every ~3000 chars as a page)
+        const charsPerPage = 3000
+        const numPages = Math.ceil(extractedText.length / charsPerPage)
+
         const pages = []
-        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-            const page = await pdf.getPage(pageNum)
-            const textContent = await page.getTextContent()
-            const pageText = textContent.items.map((item: any) => item.str).join(' ')
-
-            console.log(`Page ${pageNum}: ${pageText.substring(0, 100)}...`)
-
+        for (let i = 0; i < numPages; i++) {
+            const start = i * charsPerPage
+            const end = Math.min((i + 1) * charsPerPage, extractedText.length)
+            const pageText = extractedText.substring(start, end)
             pages.push({
-                page_number: pageNum,
+                page_number: i + 1,
                 content: pageText
             })
         }
 
+
         // Save to course_docs table
-        console.log('Saving extracted text to database...')
+        console.log(`Saving ${pages.length} pages to database...`)
 
         // First, delete any existing entries for this PDF
         await supabase
@@ -111,8 +135,8 @@ serve(async (req) => {
 
         return new Response(JSON.stringify({
             success: true,
-            pages: pdf.numPages,
-            total_chars: pages.reduce((sum, p) => sum + p.content.length, 0)
+            pages: pages.length,
+            total_chars: extractedText.length
         }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
