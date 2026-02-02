@@ -74,7 +74,7 @@ serve(async (req) => {
 
         if (docs && docs.length > 0) {
             // Use existing extracted text
-            fullText = docs.map(d => d.content).join('\n\n')
+            fullText = docs.map((d: any) => d.content).join('\n\n')
             console.log('Using existing extracted text, length:', fullText.length)
         } else {
             // Extract text directly from the PDF  
@@ -83,11 +83,26 @@ serve(async (req) => {
             // We'll use a simpler approach: download the PDF and send it to OpenAI
             // OpenAI can't process PDFs directly in this API, so we need text
             // For now, we'll just throw a helpful error
-            throw new Error('Please upload your syllabus PDF to PDF Studio first, then mark it as a syllabus and try extraction again.')
+            const errorMsg = 'Please upload your syllabus PDF to PDF Studio first, then mark it as a syllabus and try extraction again.'
+            console.error(errorMsg)
+
+            // Save failed extraction
+            await supabase.from('syllabus_extractions').insert({
+                user_id,
+                course_id,
+                pdf_id,
+                extracted_json: null,
+                status: 'failed',
+                error_message: errorMsg
+            })
+
+            throw new Error(errorMsg)
         }
 
         if (!fullText || fullText.trim().length < 100) {
-            throw new Error('Not enough text extracted from PDF. Please ensure the PDF contains readable text (not scanned images).')
+            const errorMsg = 'Not enough text extracted from PDF. Please ensure the PDF contains readable text (not scanned images).'
+            console.error(errorMsg)
+            throw new Error(errorMsg)
         }
 
         // Call OpenAI with structured output
