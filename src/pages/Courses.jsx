@@ -363,7 +363,7 @@ const CourseFormWrapper = ({isOpen, onClose, initialData, creationMethod, setCre
         return <Modal isOpen={isOpen} onClose={onClose} title="Add Course"><CourseForm isOpen={isOpen} onClose={onClose} initialData={null} onSubmit={onSubmit} /></Modal>;
     }
     if (creationMethod === 'syllabus') {
-        return <Modal isOpen={isOpen} onClose={onClose} title="Import from Syllabus"><Syllabus ImportWizard onClose={onClose} onComplete={(courseData) => onSubmit(courseData)} user={user} /></Modal>;
+        return <Modal isOpen={isOpen} onClose={onClose} title="Import from Syllabus"><SyllabusImportWizard onClose={onClose} onComplete={(courseData) => onSubmit(courseData)} user={user} /></Modal>;
     }
     return null;
 };
