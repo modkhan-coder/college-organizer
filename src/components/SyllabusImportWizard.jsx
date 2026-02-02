@@ -215,10 +215,10 @@ const SyllabusImportWizard = ({ onClose, onComplete, user }) => {
                     </div>
                     <h2 style={{ marginTop: '24px', marginBottom: '8px' }}>Reading Your Syllabus...</h2>
                     <p style={{ color: 'var(--text-secondary)' }}>
-                        Our AI is extracting course information, grading policies, and assignments.
+                        Extracting text from your PDF and analyzing course information...
                     </p>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginTop: '16px' }}>
-                        This usually takes 10-15 seconds
+                        This usually takes 15-30 seconds
                     </p>
                 </div>
             )}
