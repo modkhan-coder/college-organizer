@@ -33,17 +33,48 @@ serve(async (req) => {
 
         if (pdfError) throw new Error('PDF not found')
 
-        // Get PDF text from course_docs
+        console.log('PDF file:', pdfFile)
+
+        // Download the PDF from storage
+        const { data: fileData, error: downloadError } = await supabase.storage
+            .from('course_materials')
+            .download(pdfFile.file_path)
+
+        if (downloadError) {
+            console.error('Download error:', downloadError)
+            throw new Error(`Failed to download PDF: ${downloadError.message}`)
+        }
+
+        console.log('PDF downloaded, size:', fileData.size)
+
+        // Convert PDF blob to base64 for OpenAI
+        const arrayBuffer = await fileData.arrayBuffer()
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+
+        console.log('PDF converted to base64, length:', base64.length)
+
+        // First, let's try getting text from course_docs if it exists
         const { data: docs, error: docsError } = await supabase
             .from('course_docs')
             .select('content')
             .eq('pdf_id', pdf_id)
             .order('page_number', { ascending: true })
 
-        if (docsError || !docs) throw new Error('No PDF content found')
+        let fullText = ''
 
-        // Combine all pages
-        const fullText = docs.map(d => d.content).join('\n\n')
+        if (docs && docs.length > 0) {
+            // Use existing extracted text
+            fullText = docs.map(d => d.content).join('\n\n')
+            console.log('Using existing extracted text, length:', fullText.length)
+        } else {
+            // No pre-extracted text, we'll send the PDF directly to OpenAI
+            // For now, return a helpful error message
+            throw new Error('PDF text extraction not yet implemented. Please upload the PDF to PDF Studio first to extract text.')
+        }
+
+        if (!fullText || fullText.trim().length < 100) {
+            throw new Error('Not enough text extracted from PDF. Please ensure the PDF contains readable text.')
+        }
 
         // Call OpenAI with structured output
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
