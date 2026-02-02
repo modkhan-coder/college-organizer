@@ -9,7 +9,7 @@ import PDFCitation from '../components/PDFCitation';
 import {
     ArrowLeft, Upload, FileText, Trash2, BookOpen,
     Brain, MessageSquare, Save, Star, RefreshCw, Send, HelpCircle,
-    Maximize2, Minimize2, Mic, MicOff
+    Maximize2, Minimize2, Mic, MicOff, FileCheck
 } from 'lucide-react';
 
 // Math & Markdown Rendering
@@ -319,22 +319,37 @@ const StudyStudio = () => {
     };
 
     const handleDelete = async (pdf) => {
-        if (!confirm(`Delete "${pdf.file_name}"? This will remove all generated content.`)) return;
+        if (!confirm(`Delete "${pdf.file_name}"?`)) return;
 
-        try {
-            await supabase.storage.from('course_materials').remove([pdf.file_path]);
-            const { error } = await supabase.from('pdf_files').delete().eq('id', pdf.id);
-            if (error) throw error;
+        await supabase.from('pdf_files').delete().eq('id', pdf.id);
+        await supabase.storage.from('course_materials').remove([pdf.file_path]);
+        setPdfFiles(pdfFiles.filter(p => p.id !== pdf.id));
+        if (selectedPDF?.id === pdf.id) setSelectedPDF(null);
+        addNotification('PDF deleted', 'success');
+    };
 
-            addNotification('PDF deleted', 'success');
-            fetchPDFs();
-            if (selectedPDF?.id === pdf.id) {
-                setSelectedPDF(null);
-                setCurrentFileUrl(null);
-            }
-        } catch (error) {
-            addNotification(`Delete failed: ${error.message}`, 'error');
+    const handleToggleSyllabus = async (pdf, e) => {
+        e.stopPropagation();
+
+        const newStatus = !pdf.is_syllabus;
+
+        // Update in database
+        const { error } = await supabase
+            .from('pdf_files')
+            .update({ is_syllabus: newStatus, doc_type: newStatus ? 'syllabus' : pdf.doc_type })
+            .eq('id', pdf.id);
+
+        if (error) {
+            addNotification('Error updating syllabus status', 'error');
+            return;
         }
+
+        // Update local state
+        setPdfFiles(pdfFiles.map(p =>
+            p.id === pdf.id ? { ...p, is_syllabus: newStatus, doc_type: newStatus ? 'syllabus' : p.doc_type } : p
+        ));
+
+        addNotification(newStatus ? 'Marked as syllabus' : 'Unmarked as syllabus', 'success');
     };
 
     const handleCitationClick = (pdfName, page) => {
@@ -797,11 +812,39 @@ const StudyStudio = () => {
                                 >
                                     <FileText size={16} />
                                     <div style={{ flex: 1, overflow: 'hidden' }}>
-                                        <div style={{ fontWeight: '600', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
                                             {pdf.file_name}
+                                            {pdf.is_syllabus && (
+                                                <span style={{
+                                                    fontSize: '0.65rem',
+                                                    padding: '2px 6px',
+                                                    background: selectedPDF?.id === pdf.id ? 'rgba(255,255,255,0.2)' : 'var(--primary)',
+                                                    color: selectedPDF?.id === pdf.id ? 'white' : 'white',
+                                                    borderRadius: '4px',
+                                                    fontWeight: 'bold'
+                                                }}>
+                                                    SYLLABUS
+                                                </span>
+                                            )}
                                         </div>
                                         <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>{pdf.num_pages} pages</div>
                                     </div>
+                                    <button
+                                        onClick={(e) => handleToggleSyllabus(pdf, e)}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            color: pdf.is_syllabus ? '#10b981' : 'currentColor',
+                                            cursor: 'pointer',
+                                            padding: '4px',
+                                            opacity: pdf.is_syllabus ? 1 : 0.5,
+                                            display: 'flex',
+                                            alignItems: 'center'
+                                        }}
+                                        title={pdf.is_syllabus ? 'Unmark as syllabus' : 'Mark as syllabus'}
+                                    >
+                                        <FileCheck size={16} />
+                                    </button>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleDelete(pdf); }}
                                         style={{ background: 'none', border: 'none', color: 'currentColor', cursor: 'pointer', padding: '4px', opacity: 0.7 }}
