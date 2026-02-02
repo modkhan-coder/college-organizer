@@ -352,6 +352,42 @@ const StudyStudio = () => {
         addNotification(newStatus ? 'Marked as syllabus' : 'Unmarked as syllabus', 'success');
     };
 
+    const handleExtractSyllabus = async () => {
+        const syllabus = pdfFiles.find(pdf => pdf.is_syllabus);
+        if (!syllabus) {
+            addNotification('No syllabus marked', 'error');
+            return;
+        }
+
+        setGenerating(true);
+        addNotification('Extracting syllabus data...', 'info');
+
+        try {
+            const { data, error } = await supabase.functions.invoke('extract-syllabus', {
+                body: {
+                    pdf_id: syllabus.id,
+                    course_id: courseId,
+                    user_id: user.id
+                }
+            });
+
+            if (error) throw error;
+
+            if (data.success) {
+                console.log('Extracted data:', data.data);
+                addNotification('Syllabus extracted! Review coming soon.', 'success');
+                // TODO: Open review wizard
+            } else {
+                throw new Error(data.error || 'Extraction failed');
+            }
+        } catch (error) {
+            console.error('Extraction error:', error);
+            addNotification(`Extraction failed: ${error.message}`, 'error');
+        } finally {
+            setGenerating(false);
+        }
+    };
+
     const handleCitationClick = (pdfName, page) => {
         console.log('Citation clicked:', { pdfName, page, availablePDFs: pdfFiles.map(p => p.file_name) });
 
@@ -854,6 +890,18 @@ const StudyStudio = () => {
                                 </div>
                             ))}
                         </div>
+                    )}
+
+                    {/* Extract Syllabus Button */}
+                    {pdfFiles.some(pdf => pdf.is_syllabus) && (
+                        <button
+                            className="btn btn-primary"
+                            onClick={handleExtractSyllabus}
+                            disabled={generating}
+                            style={{ width: '100%', marginTop: '16px', fontSize: '0.9rem' }}
+                        >
+                            <Brain size={16} /> Extract from Syllabus
+                        </button>
                     )}
                 </div>
 
