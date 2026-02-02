@@ -82,8 +82,28 @@ const SyllabusImportWizard = ({ onClose, onComplete, user }) => {
 
             console.log('PDF record created:', pdf.id);
 
-            // Call AI extraction directly
-            // Note: This requires the PDF to be text-based (not scanned images)
+            // Step 1: Extract text from PDF
+            console.log('Extracting text from PDF...');
+            const { data: extractTextData, error: extractTextError } = await supabase.functions.invoke('extract-pdf-text', {
+                body: {
+                    pdf_id: pdf.id,
+                    user_id: user.id,
+                    course_id: course.id
+                }
+            });
+
+            if (extractTextError) {
+                console.error('PDF text extraction error:', extractTextError);
+                throw new Error(`Failed to extract PDF text: ${extractTextError.message}`);
+            }
+
+            if (!extractTextData.success) {
+                throw new Error(extractTextData.error || 'PDF text extraction failed');
+            }
+
+            console.log('PDF text extracted:', extractTextData);
+
+            // Step 2: Call AI extraction
             console.log('Starting AI extraction...');
             const { data, error } = await supabase.functions.invoke('extract-syllabus', {
                 body: {
