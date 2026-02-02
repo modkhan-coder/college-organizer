@@ -64,6 +64,46 @@ const PDFViewer = ({ fileUrl, onJumpToPage }) => {
         }
     }, [onJumpToPage, numPages]);
 
+    // Search functionality
+    const handleSearch = async () => {
+        if (!searchQuery || !pdfDoc) return;
+
+        const query = searchQuery.toLowerCase();
+
+        // Search through all pages
+        for (let pageNum = currentPage; pageNum <= numPages; pageNum++) {
+            const page = await pdfDoc.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            const text = textContent.items.map(item => item.str).join(' ').toLowerCase();
+
+            if (text.includes(query)) {
+                setCurrentPage(pageNum);
+                return;
+            }
+        }
+
+        // If not found from current page onwards, search from beginning
+        for (let pageNum = 1; pageNum < currentPage; pageNum++) {
+            const page = await pdfDoc.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            const text = textContent.items.map(item => item.str).join(' ').toLowerCase();
+
+            if (text.includes(query)) {
+                setCurrentPage(pageNum);
+                return;
+            }
+        }
+
+        // Not found
+        alert('Text not found in PDF');
+    };
+
+    const handleSearchKeyPress = (e) => {
+        if (e.key === 'Enter') {
+            handleSearch();
+        }
+    };
+
     const handleZoomIn = () => setScale(prev => Math.min(prev + 0.25, 3));
     const handleZoomOut = () => setScale(prev => Math.max(prev - 0.25, 0.5));
     const handlePrevPage = () => setCurrentPage(prev => Math.max(prev - 1, 1));
@@ -141,7 +181,7 @@ const PDFViewer = ({ fileUrl, onJumpToPage }) => {
                     </button>
                 </div>
 
-                {/* Search (Phase 2) */}
+                {/* Search */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, maxWidth: '300px' }}>
                     <Search size={16} color="var(--text-secondary)" />
                     <input
@@ -149,8 +189,17 @@ const PDFViewer = ({ fileUrl, onJumpToPage }) => {
                         placeholder="Search in PDF..."
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
-                        style={{ padding: '6px 12px', fontSize: '0.9rem' }}
+                        onKeyPress={handleSearchKeyPress}
+                        style={{ padding: '6px 12px', fontSize: '0.9rem', flex: 1 }}
                     />
+                    <button
+                        className="btn btn-secondary"
+                        onClick={handleSearch}
+                        disabled={!searchQuery}
+                        style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+                    >
+                        Find
+                    </button>
                 </div>
             </div>
 
