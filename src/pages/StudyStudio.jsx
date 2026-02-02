@@ -354,8 +354,8 @@ const StudyStudio = () => {
 
     const handleExtractSyllabus = async () => {
         const syllabus = pdfFiles.find(pdf => pdf.is_syllabus);
-        if (!syllabus) {
-            addNotification('No syllabus marked', 'error');
+        if (!selectedPDF) {
+            addNotification('No PDF selected for syllabus extraction.', 'error');
             return;
         }
 
@@ -363,15 +363,26 @@ const StudyStudio = () => {
         addNotification('Extracting syllabus data...', 'info');
 
         try {
+            console.log('Calling extract-syllabus with:', {
+                pdf_id: selectedPDF.id,
+                course_id: selectedPDF.course_id,
+                user_id: user.id
+            });
+
             const { data, error } = await supabase.functions.invoke('extract-syllabus', {
                 body: {
-                    pdf_id: syllabus.id,
-                    course_id: courseId,
+                    pdf_id: selectedPDF.id,
+                    course_id: selectedPDF.course_id,
                     user_id: user.id
                 }
             });
 
-            if (error) throw error;
+            console.log('Extract response:', { data, error });
+
+            if (error) {
+                console.error('Extraction error:', error);
+                throw error;
+            }
 
             if (data.success) {
                 console.log('Extracted data:', data.data);
