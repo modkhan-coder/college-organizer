@@ -92,6 +92,9 @@ const SyllabusImportWizard = ({ onClose, onComplete, user }) => {
             if (error) throw error;
 
             if (data.success) {
+                console.log('✅ Extraction successful!');
+                console.log('Raw data:', data);
+                console.log('Extracted data:', data.data);
                 setExtractedData(data.data);
                 setEditedData(JSON.parse(JSON.stringify(data.data))); // Deep clone
                 setStep(3);
@@ -205,7 +208,7 @@ const SyllabusImportWizard = ({ onClose, onComplete, user }) => {
                             <label className="form-label">Course Title</label>
                             <input
                                 className="input-field"
-                                value={editedData.course_info.title}
+                                value={editedData?.course_info?.title || ''}
                                 onChange={e => handleDataEdit('course_info', null, 'title', e.target.value)}
                             />
                         </div>
@@ -213,7 +216,7 @@ const SyllabusImportWizard = ({ onClose, onComplete, user }) => {
                             <label className="form-label">Instructor</label>
                             <input
                                 className="input-field"
-                                value={editedData.course_info.instructor_name}
+                                value={editedData?.course_info?.instructor_name || ''}
                                 onChange={e => handleDataEdit('course_info', null, 'instructor_name', e.target.value)}
                             />
                         </div>
@@ -222,7 +225,7 @@ const SyllabusImportWizard = ({ onClose, onComplete, user }) => {
                             <input
                                 className="input-field"
                                 type="email"
-                                value={editedData.course_info.instructor_email}
+                                value={editedData?.course_info?.instructor_email || ''}
                                 onChange={e => handleDataEdit('course_info', null, 'instructor_email', e.target.value)}
                             />
                         </div>
@@ -231,7 +234,7 @@ const SyllabusImportWizard = ({ onClose, onComplete, user }) => {
                                 <label className="form-label">Meeting Times</label>
                                 <input
                                     className="input-field"
-                                    value={editedData.course_info.meeting_times}
+                                    value={editedData?.course_info?.meeting_times || ''}
                                     onChange={e => handleDataEdit('course_info', null, 'meeting_times', e.target.value)}
                                 />
                             </div>
@@ -239,7 +242,7 @@ const SyllabusImportWizard = ({ onClose, onComplete, user }) => {
                                 <label className="form-label">Location</label>
                                 <input
                                     className="input-field"
-                                    value={editedData.course_info.location}
+                                    value={editedData?.course_info?.location || ''}
                                     onChange={e => handleDataEdit('course_info', null, 'location', e.target.value)}
                                 />
                             </div>
