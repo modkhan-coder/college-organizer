@@ -92,16 +92,19 @@ const SyllabusImportWizard = ({ onClose, onComplete, user }) => {
                 }
             });
 
+            console.log('Extract text response:', { extractTextData, extractTextError });
+
             if (extractTextError) {
                 console.error('PDF text extraction error:', extractTextError);
                 throw new Error(`Failed to extract PDF text: ${extractTextError.message}`);
             }
 
-            if (!extractTextData.success) {
-                throw new Error(extractTextData.error || 'PDF text extraction failed');
+            if (!extractTextData || !extractTextData.success) {
+                console.error('Extract text failed:', extractTextData);
+                throw new Error(extractTextData?.error || 'PDF text extraction failed');
             }
 
-            console.log('PDF text extracted:', extractTextData);
+            console.log('PDF text extracted successfully:', extractTextData);
 
             // Step 2: Call AI extraction
             console.log('Starting AI extraction...');
