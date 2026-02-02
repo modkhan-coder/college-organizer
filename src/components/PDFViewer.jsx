@@ -100,12 +100,22 @@ const PDFViewer = ({ fileUrl, onJumpToPage }) => {
                 textContent.items.forEach(item => {
                     if (item.str.toLowerCase().includes(query)) {
                         const transform = item.transform;
-                        const x = transform[4];
-                        const y = viewport.height - transform[5];
-                        const width = item.width;
-                        const height = item.height || 12;
 
-                        highlights.push({ x, y: y - height, width, height });
+                        // PDF.js transform: [scaleX, skewY, skewX, scaleY, translateX, translateY]
+                        const x = transform[4];
+                        const y = transform[5];
+                        const height = Math.abs(transform[3]) || 12; // Font size is in scaleY
+                        const width = item.width;
+
+                        // Convert PDF coordinates to canvas coordinates
+                        const [canvasX, canvasY] = viewport.convertToViewportPoint(x, y);
+
+                        highlights.push({
+                            x: canvasX,
+                            y: canvasY - height,
+                            width: width * scale,
+                            height: height
+                        });
                     }
                 });
 
@@ -130,12 +140,22 @@ const PDFViewer = ({ fileUrl, onJumpToPage }) => {
                 textContent.items.forEach(item => {
                     if (item.str.toLowerCase().includes(query)) {
                         const transform = item.transform;
-                        const x = transform[4];
-                        const y = viewport.height - transform[5];
-                        const width = item.width;
-                        const height = item.height || 12;
 
-                        highlights.push({ x, y: y - height, width, height });
+                        // PDF.js transform: [scaleX, skewY, skewX, scaleY, translateX, translateY]
+                        const x = transform[4];
+                        const y = transform[5];
+                        const height = Math.abs(transform[3]) || 12; // Font size is in scaleY
+                        const width = item.width;
+
+                        // Convert PDF coordinates to canvas coordinates
+                        const [canvasX, canvasY] = viewport.convertToViewportPoint(x, y);
+
+                        highlights.push({
+                            x: canvasX,
+                            y: canvasY - height,
+                            width: width * scale,
+                            height: height
+                        });
                     }
                 });
 
