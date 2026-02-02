@@ -16,7 +16,17 @@ serve(async (req) => {
     }
 
     try {
-        const { pdf_id, course_id, user_id } = await req.json()
+        console.log('=== Extract Syllabus Function Called ===')
+        const body = await req.json()
+        console.log('Request body:', JSON.stringify(body))
+
+        const { pdf_id, course_id, user_id } = body
+
+        console.log('Parameters:', { pdf_id, course_id, user_id })
+
+        if (!pdf_id || !course_id || !user_id) {
+            throw new Error(`Missing required parameters: pdf_id=${pdf_id}, course_id=${course_id}, user_id=${user_id}`)
+        }
 
         if (!openaiApiKey) {
             throw new Error('OPENAI_API_KEY not configured')
