@@ -158,10 +158,13 @@ const PDFViewer = ({ fileUrl, onJumpToPage }) => {
             <div style={{
                 flex: 1,
                 overflowY: 'auto',
+                overflowX: 'auto',
                 padding: '20px',
                 display: 'flex',
                 justifyContent: 'center',
-                background: '#f5f5f5'
+                alignItems: 'flex-start',
+                background: '#f5f5f5',
+                minHeight: 0 // Important for flex scrolling
             }}>
                 <canvas
                     ref={canvasRef}
@@ -169,7 +172,8 @@ const PDFViewer = ({ fileUrl, onJumpToPage }) => {
                         boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                         background: 'white',
                         maxWidth: '100%',
-                        height: 'fit-content'
+                        height: 'auto',
+                        display: 'block'
                     }}
                 />
             </div>
