@@ -858,7 +858,13 @@ const StudyStudio = () => {
                 </div>
 
                 {/* Center: PDF Viewer */}
-                <div style={{ position: 'relative' }}>
+                <div style={{
+                    position: 'relative',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    flex: 1
+                }}>
                     {/* Top Bar: Scope & Page Range */}
                     <div style={{
                         padding: '12px 16px',
