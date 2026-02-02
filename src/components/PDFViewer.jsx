@@ -12,6 +12,7 @@ const PDFViewer = ({ fileUrl, onJumpToPage }) => {
     const [scale, setScale] = useState(1.5);
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
+    const [searchHighlights, setSearchHighlights] = useState([]);
 
     const canvasRef = useRef(null);
     const viewerRef = useRef(null);
@@ -50,9 +51,23 @@ const PDFViewer = ({ fileUrl, onJumpToPage }) => {
                 viewport: viewport
             };
 
-            page.render(renderContext);
+            // Render PDF page
+            page.render(renderContext).promise.then(() => {
+                // Draw highlights after page is rendered
+                if (searchHighlights.length > 0) {
+                    context.fillStyle = 'rgba(0, 255, 0, 0.3)'; // Green with transparency
+                    searchHighlights.forEach(highlight => {
+                        context.fillRect(
+                            highlight.x,
+                            highlight.y,
+                            highlight.width,
+                            highlight.height
+                        );
+                    });
+                }
+            });
         });
-    }, [pdfDoc, currentPage, scale]);
+    }, [pdfDoc, currentPage, scale, searchHighlights]);
 
     // Jump to page API (called by citations)
     useEffect(() => {
@@ -64,37 +79,74 @@ const PDFViewer = ({ fileUrl, onJumpToPage }) => {
         }
     }, [onJumpToPage, numPages]);
 
-    // Search functionality
+    // Search functionality with highlighting
     const handleSearch = async () => {
         if (!searchQuery || !pdfDoc) return;
 
         const query = searchQuery.toLowerCase();
 
-        // Search through all pages
+        // Search through all pages starting from current
         for (let pageNum = currentPage; pageNum <= numPages; pageNum++) {
             const page = await pdfDoc.getPage(pageNum);
             const textContent = await page.getTextContent();
+            const viewport = page.getViewport({ scale });
+
             const text = textContent.items.map(item => item.str).join(' ').toLowerCase();
 
             if (text.includes(query)) {
+                // Find matching text items and their positions
+                const highlights = [];
+
+                textContent.items.forEach(item => {
+                    if (item.str.toLowerCase().includes(query)) {
+                        const transform = item.transform;
+                        const x = transform[4];
+                        const y = viewport.height - transform[5];
+                        const width = item.width;
+                        const height = item.height || 12;
+
+                        highlights.push({ x, y: y - height, width, height });
+                    }
+                });
+
+                setSearchHighlights(highlights);
                 setCurrentPage(pageNum);
                 return;
             }
         }
 
-        // If not found from current page onwards, search from beginning
+        // Search from beginning if not found
         for (let pageNum = 1; pageNum < currentPage; pageNum++) {
             const page = await pdfDoc.getPage(pageNum);
             const textContent = await page.getTextContent();
+            const viewport = page.getViewport({ scale });
+
             const text = textContent.items.map(item => item.str).join(' ').toLowerCase();
 
             if (text.includes(query)) {
+                // Find matching text items and their positions
+                const highlights = [];
+
+                textContent.items.forEach(item => {
+                    if (item.str.toLowerCase().includes(query)) {
+                        const transform = item.transform;
+                        const x = transform[4];
+                        const y = viewport.height - transform[5];
+                        const width = item.width;
+                        const height = item.height || 12;
+
+                        highlights.push({ x, y: y - height, width, height });
+                    }
+                });
+
+                setSearchHighlights(highlights);
                 setCurrentPage(pageNum);
                 return;
             }
         }
 
         // Not found
+        setSearchHighlights([]);
         alert('Text not found in PDF');
     };
 
@@ -106,8 +158,14 @@ const PDFViewer = ({ fileUrl, onJumpToPage }) => {
 
     const handleZoomIn = () => setScale(prev => Math.min(prev + 0.25, 3));
     const handleZoomOut = () => setScale(prev => Math.max(prev - 0.25, 0.5));
-    const handlePrevPage = () => setCurrentPage(prev => Math.max(prev - 1, 1));
-    const handleNextPage = () => setCurrentPage(prev => Math.min(prev + 1, numPages));
+    const handlePrevPage = () => {
+        setSearchHighlights([]);
+        setCurrentPage(prev => Math.max(prev - 1, 1));
+    };
+    const handleNextPage = () => {
+        setSearchHighlights([]);
+        setCurrentPage(prev => Math.min(prev + 1, numPages));
+    };
 
     if (loading) {
         return (
