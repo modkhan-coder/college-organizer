@@ -82,31 +82,10 @@ const SyllabusImportWizard = ({ onClose, onComplete, user }) => {
 
             console.log('PDF record created:', pdf.id);
 
-            // Step 1: Extract text from PDF
-            console.log('Extracting text from PDF...');
-            const { data: extractTextData, error: extractTextError } = await supabase.functions.invoke('extract-pdf-text', {
-                body: {
-                    pdf_id: pdf.id,
-                    user_id: user.id,
-                    course_id: course.id
-                }
-            });
-
-            console.log('Extract text response:', { extractTextData, extractTextError });
-
-            if (extractTextError) {
-                console.error('PDF text extraction error:', extractTextError);
-                throw new Error(`Failed to extract PDF text: ${extractTextError.message}`);
-            }
-
-            if (!extractTextData || !extractTextData.success) {
-                console.error('Extract text failed:', extractTextData);
-                throw new Error(extractTextData?.error || 'PDF text extraction failed');
-            }
-
-            console.log('PDF text extracted successfully:', extractTextData);
-
-            // Step 2: Call AI extraction
+            // Skip automatic PDF text extraction - it's too unreliable
+            // Just call AI extraction directly
+            // If it fails, user can manually paste text or upload to PDF Studio first
+            console.log('Starting AI extraction (requires pre-extracted text)...');
             console.log('Starting AI extraction...');
             const { data, error } = await supabase.functions.invoke('extract-syllabus', {
                 body: {
@@ -130,7 +109,13 @@ const SyllabusImportWizard = ({ onClose, onComplete, user }) => {
             }
         } catch (error) {
             console.error('Extraction error:', error);
-            alert(`Extraction failed: ${error.message}`);
+
+            // Provide helpful workaround
+            const errorMsg = error.message.includes('Please upload') || error.message.includes('Not enough text')
+                ? error.message
+                : 'Automatic extraction failed. Please try:\n\n1. Go to PDF Studio\n2. Upload this syllabus PDF\n3. Mark it as a syllabus\n4. Then try extraction from there.\n\nOR paste the syllabus text manually when creating the course.';
+
+            alert(`Extraction failed:\n\n${errorMsg}`);
             setStep(1);
         } finally {
             setExtracting(false);
