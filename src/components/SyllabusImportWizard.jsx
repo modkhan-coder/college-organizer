@@ -82,31 +82,11 @@ const SyllabusImportWizard = ({ onClose, onComplete, user }) => {
 
             console.log('PDF record created:', pdf.id);
 
-            // Step 1: Extract text from PDF
-            console.log('Extracting text from PDF...');
-            const { data: extractTextData, error: extractTextError } = await supabase.functions.invoke('extract-pdf-text', {
-                body: {
-                    pdf_id: pdf.id,
-                    user_id: user.id,
-                    course_id: course.id
-                }
-            });
+            // Skip automatic text extraction for now
+            // User will need to upload PDF to PDF Studio first, which extracts text
+            // Then they can use the extraction from there
 
-            console.log('Extract text response:', { extractTextData, extractTextError });
-
-            if (extractTextError) {
-                console.error('PDF text extraction error:', extractTextError);
-                throw new Error(`Failed to extract PDF text: ${extractTextError.message}`);
-            }
-
-            if (!extractTextData || !extractTextData.success) {
-                console.error('Extract text failed:', extractTextData);
-                throw new Error(extractTextData?.error || 'PDF text extraction failed');
-            }
-
-            console.log('PDF text extracted successfully:', extractTextData);
-
-            // Step 2: Call AI extraction
+            // Call AI extraction directly (will fail if no text in course_docs)
             console.log('Starting AI extraction...');
             const { data, error } = await supabase.functions.invoke('extract-syllabus', {
                 body: {
