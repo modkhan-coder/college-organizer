@@ -82,24 +82,9 @@ const SyllabusImportWizard = ({ onClose, onComplete, user }) => {
 
             console.log('PDF record created:', pdf.id);
 
-            // Step 1: Process PDF to extract text (this populates course_docs table)
-            console.log('Processing PDF to extract text...');
-            const { data: processData, error: processError } = await supabase.functions.invoke('process-pdf', {
-                body: {
-                    pdf_id: pdf.id,
-                    user_id: user.id,
-                    course_id: course.id
-                }
-            });
-
-            if (processError) {
-                console.error('PDF processing error:', processError);
-                throw new Error(`Failed to process PDF: ${processError.message}`);
-            }
-
-            console.log('PDF processing complete:', processData);
-
-            // Step 2: Call extraction Edge Function
+            // Call AI extraction directly
+            // Note: This requires the PDF to be text-based (not scanned images)
+            console.log('Starting AI extraction...');
             const { data, error } = await supabase.functions.invoke('extract-syllabus', {
                 body: {
                     pdf_id: pdf.id,

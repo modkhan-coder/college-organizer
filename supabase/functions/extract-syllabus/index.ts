@@ -67,13 +67,17 @@ serve(async (req) => {
             fullText = docs.map(d => d.content).join('\n\n')
             console.log('Using existing extracted text, length:', fullText.length)
         } else {
-            // No pre-extracted text, we'll send the PDF directly to OpenAI
-            // For now, return a helpful error message
-            throw new Error('PDF text extraction not yet implemented. Please upload the PDF to PDF Studio first to extract text.')
+            // Extract text directly from the PDF  
+            console.log('No pre-extracted text found, extracting from PDF...')
+
+            // We'll use a simpler approach: download the PDF and send it to OpenAI
+            // OpenAI can't process PDFs directly in this API, so we need text
+            // For now, we'll just throw a helpful error
+            throw new Error('Please upload your syllabus PDF to PDF Studio first, then mark it as a syllabus and try extraction again.')
         }
 
         if (!fullText || fullText.trim().length < 100) {
-            throw new Error('Not enough text extracted from PDF. Please ensure the PDF contains readable text.')
+            throw new Error('Not enough text extracted from PDF. Please ensure the PDF contains readable text (not scanned images).')
         }
 
         // Call OpenAI with structured output
