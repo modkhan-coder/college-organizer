@@ -3,13 +3,15 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { Plus, Edit2, Trash2, Book, ExternalLink, Clock } from 'lucide-react';
+import { Plus, Edit2, Trash2, Book, ExternalLink, Clock, FileText, Edit3 } from 'lucide-react';
 import Modal from '../components/Modal';
+import SyllabusImportWizard from '../components/SyllabusImportWizard';
 
 const Courses = () => {
     const { courses, addCourse, updateCourse, deleteCourse, user } = useApp();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCourse, setEditingCourse] = useState(null);
+    const [creationMethod, setCreationMethod] = useState(null); // 'manual' | 'syllabus'
 
     const handleEdit = (course) => {
         setEditingCourse(course);
@@ -18,6 +20,7 @@ const Courses = () => {
 
     const handleAdd = () => {
         setEditingCourse(null);
+        setCreationMethod(null); // Reset to show method selector
         setIsModalOpen(true);
     };
 
@@ -56,17 +59,24 @@ const Courses = () => {
                 </div>
             )}
 
-            <CourseForm
+            <CourseFormWrapper
                 isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                onClose={() => {
+                    setIsModalOpen(false);
+                    setCreationMethod(null);
+                }}
                 initialData={editingCourse}
+                creationMethod={creationMethod}
+                setCreationMethod={setCreationMethod}
+                user={user}
                 onSubmit={(data) => {
                     if (editingCourse) {
                         updateCourse(editingCourse.id, data);
                     } else {
-                        addCourse({ ...data, color: `hsl(${Math.random() * 360}, 70%, 60%)` }); // Random color for visual distinction
+                        addCourse({ ...data, color: `hsl(${Math.random() * 360}, 70%, 60%)` });
                     }
                     setIsModalOpen(false);
+                    setCreationMethod(null);
                 }}
             />
         </div>
