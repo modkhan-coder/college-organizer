@@ -3,7 +3,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -53,40 +52,39 @@ serve(async (req) => {
 
         console.log('PDF downloaded, size:', fileData.size)
 
-        // Convert PDF to base64
-        const arrayBuffer = await fileData.arrayBuffer()
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+        // Use pdf.co free API for PDF to text conversion
+        const formData = new FormData()
+        formData.append('file', fileData, pdfFile.file_name)
 
-        console.log('PDF converted to base64, calling OpenAI for extraction...')
+        console.log('Calling PDF.co API for text extraction...')
 
-        // Use OpenAI's API to extract text from PDF
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        const response = await fetch('https://api.pdf.co/v1/pdf/convert/to/text', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${openaiApiKey}`,
-                'Content-Type': 'application/json'
+                'x-api-key': 'demo' // Using demo key - you can get a free key at pdf.co
             },
-            body: JSON.stringify({
-                model: 'gpt-4o',
-                messages: [
-                    {
-                        role: 'user',
-                        content: `Please extract ALL text from this PDF document. Return ONLY the extracted text, maintaining the original structure and formatting as much as possible. Do not add any commentary or analysis.\n\nPDF Base64:\n${base64.substring(0, 100000)}` // Limit to ~100KB
-                    }
-                ],
-                max_tokens: 16000
-            })
+            body: formData
         })
 
         if (!response.ok) {
-            const error = await response.text()
-            throw new Error(`OpenAI API error: ${error}`)
+            throw new Error(`PDF.co API error: ${response.statusText}`)
         }
 
-        const data = await response.json()
-        const extractedText = data.choices[0].message.content
+        const result = await response.json()
+
+        if (!result.url) {
+            throw new Error('Failed to extract text from PDF')
+        }
+
+        // Download the extracted text
+        const textResponse = await fetch(result.url)
+        const extractedText = await textResponse.text()
 
         console.log(`Extracted ${extractedText.length} characters of text`)
+
+        if (!extractedText || extractedText.length < 50) {
+            throw new Error('Insufficient text extracted from PDF. Please ensure the PDF contains readable text.')
+        }
 
         // Split into pages (approximate - we'll treat every ~3000 chars as a page)
         const charsPerPage = 3000
@@ -102,7 +100,6 @@ serve(async (req) => {
                 content: pageText
             })
         }
-
 
         // Save to course_docs table
         console.log(`Saving ${pages.length} pages to database...`)

@@ -234,28 +234,20 @@ const StudyStudio = () => {
     };
 
     const handleSelectPDF = async (pdf) => {
-        // Clear previous PDF's content when switching
-        if (selectedPDF && selectedPDF.id !== pdf.id) {
-            setGeneratedNotes(null);
-            setGeneratedQuiz(null);
-            setChatHistory([]);
-        }
-
         setSelectedPDF(pdf);
 
-        // Load persisted content for this PDF
+        // Load persisted content for this PDF FIRST
+        // This will either load saved data or clear if none exists
         loadPersistedContent(pdf.id);
 
         const { data } = await supabase.storage
             .from('course_materials')
-            .createSignedUrl(pdf.file_path, 3600);
+            .download(pdf.file_path);
 
-        if (data?.signedUrl) {
-            setCurrentFileUrl(data.signedUrl);
+        if (data) {
+            const url = URL.createObjectURL(data);
+            setCurrentFileUrl(url);
         }
-
-        // Load persisted content for this PDF
-        loadPersistedContent(pdf.id);
     };
 
     const handleUpload = async (e) => {
