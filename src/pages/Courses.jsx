@@ -331,3 +331,39 @@ F: 0-59`;
 };
 
 export default Courses;
+
+// Wrapper that handles method selection  
+const CourseFormWrapper = ({isOpen, onClose, initialData, creationMethod, setCreationMethod, user, onSubmit}) => {
+    if (initialData) {
+        return <Modal isOpen={isOpen} onClose={onClose} title="Edit Course"><CourseForm isOpen={isOpen} onClose={onClose} initialData={initialData} onSubmit={onSubmit} /></Modal>;
+    }
+    if (!creationMethod) {
+        return (
+            <Modal isOpen={isOpen} onClose={onClose} title="Add Course">
+                <div style={{padding: '24px'}}>
+                    <h2 style={{marginBottom: '8px', textAlign: 'center'}}>How would you like to add this course?</h2>
+                    <p style={{color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '32px'}}>Choose a method to get started</p>
+                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px'}}>
+                        <button onClick={() => setCreationMethod('manual')} style={{all: 'unset', cursor: 'pointer', padding: '24px', border: '2px solid var(--border)', borderRadius: '12px', textAlign: 'center', transition: 'all 0.2s', background: 'var(--bg-surface)'}} onMouseEnter={e => {e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.transform = 'translateY(-4px)';}} onMouseLeave={e => {e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)';}}>
+                            <Edit3 size={48} style={{color: 'var(--primary)', marginBottom: '16px'}} />
+                            <h3 style={{marginBottom: '8px'}}>Manual Entry</h3>
+                            <p style={{color: 'var(--text-secondary)', fontSize: '0.875rem'}}>Enter course details yourself</p>
+                        </button>
+                        <button onClick={() => setCreationMethod('syllabus')} style={{all: 'unset', cursor: 'pointer', padding: '24px', border: '2px solid var(--border)', borderRadius: '12px', textAlign: 'center', transition: 'all 0.2s', background: 'var(--bg-surface)'}} onMouseEnter={e => {e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.transform = 'translateY(-4px)';}} onMouseLeave={e => {e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)';}}>
+                            <FileText size={48} style={{color: 'var(--primary)', marginBottom: '16px'}} />
+                            <h3 style={{marginBottom: '8px'}}>Import from Syllabus</h3>
+                            <p style={{color: 'var(--text-secondary)', fontSize: '0.875rem'}}>Upload PDF and we'll extract it</p>
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+        );
+    }
+    if (creationMethod === 'manual') {
+        return <Modal isOpen={isOpen} onClose={onClose} title="Add Course"><CourseForm isOpen={isOpen} onClose={onClose} initialData={null} onSubmit={onSubmit} /></Modal>;
+    }
+    if (creationMethod === 'syllabus') {
+        return <Modal isOpen={isOpen} onClose={onClose} title="Import from Syllabus"><Syllabus ImportWizard onClose={onClose} onComplete={(courseData) => onSubmit(courseData)} user={user} /></Modal>;
+    }
+    return null;
+};
