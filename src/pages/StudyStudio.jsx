@@ -352,52 +352,6 @@ const StudyStudio = () => {
         addNotification(newStatus ? 'Marked as syllabus' : 'Unmarked as syllabus', 'success');
     };
 
-    const handleExtractSyllabus = async () => {
-        const syllabus = pdfFiles.find(pdf => pdf.is_syllabus);
-        if (!selectedPDF) {
-            addNotification('No PDF selected for syllabus extraction.', 'error');
-            return;
-        }
-
-        setGenerating(true);
-        addNotification('Extracting syllabus data...', 'info');
-
-        try {
-            console.log('Calling extract-syllabus with:', {
-                pdf_id: selectedPDF.id,
-                course_id: selectedPDF.course_id,
-                user_id: user.id
-            });
-
-            const { data, error } = await supabase.functions.invoke('extract-syllabus', {
-                body: {
-                    pdf_id: selectedPDF.id,
-                    course_id: selectedPDF.course_id,
-                    user_id: user.id
-                }
-            });
-
-            console.log('Extract response:', { data, error });
-
-            if (error) {
-                console.error('Extraction error:', error);
-                throw error;
-            }
-
-            if (data.success) {
-                console.log('Extracted data:', data.data);
-                addNotification('Syllabus extracted! Review coming soon.', 'success');
-                // TODO: Open review wizard
-            } else {
-                throw new Error(data.error || 'Extraction failed');
-            }
-        } catch (error) {
-            console.error('Extraction error:', error);
-            addNotification(`Extraction failed: ${error.message}`, 'error');
-        } finally {
-            setGenerating(false);
-        }
-    };
 
     const handleCitationClick = (pdfName, page) => {
         console.log('Citation clicked:', { pdfName, page, availablePDFs: pdfFiles.map(p => p.file_name) });
@@ -903,17 +857,7 @@ const StudyStudio = () => {
                         </div>
                     )}
 
-                    {/* Extract Syllabus Button */}
-                    {pdfFiles.some(pdf => pdf.is_syllabus) && (
-                        <button
-                            className="btn btn-primary"
-                            onClick={handleExtractSyllabus}
-                            disabled={generating}
-                            style={{ width: '100%', marginTop: '16px', fontSize: '0.9rem' }}
-                        >
-                            <Brain size={16} /> Extract from Syllabus
-                        </button>
-                    )}
+                    {/* Removed Extract Syllabus Button - feature moved to Add Course flow */}
                 </div>
 
                 {/* Center: PDF Viewer */}
