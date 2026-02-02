@@ -33,7 +33,7 @@ const SyllabusImportWizard = ({ onClose, onComplete, user }) => {
 
             setPdfId(fileName);
             setStep(2);
-            setTimeout(() => handleExtraction(fileName), 500);
+            setTimeout(() => handleExtraction(fileName, file), 500);
         } catch (error) {
             console.error('Upload error:', error);
             alert('Failed to upload PDF');
@@ -43,7 +43,7 @@ const SyllabusImportWizard = ({ onClose, onComplete, user }) => {
     };
 
     // Step 2: AI Extraction
-    const handleExtraction = async (fileName) => {
+    const handleExtraction = async (fileName, file) => {
         setExtracting(true);
 
         try {
@@ -69,7 +69,7 @@ const SyllabusImportWizard = ({ onClose, onComplete, user }) => {
                 .insert({
                     user_id: user.id,
                     course_id: course.id,
-                    file_name: pdfFile.name,
+                    file_name: file.name,
                     file_path: fileName,
                     num_pages: 1,
                     is_syllabus: true,
