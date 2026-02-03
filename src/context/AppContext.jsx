@@ -375,6 +375,7 @@ export const AppProvider = ({ children }) => {
     if (updates.gradingScale) dbUpdates.grading_scale = updates.gradingScale;
     if (updates.categories) dbUpdates.categories = updates.categories;
     if (updates.schedule) dbUpdates.schedule = updates.schedule;
+    if (updates.instructor) dbUpdates.instructor = updates.instructor;
 
     const { error } = await supabase.from('courses').update(dbUpdates).eq('id', id);
     if (error) {

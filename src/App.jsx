@@ -22,6 +22,7 @@ import Help from './pages/Help';
 import Privacy from './pages/Privacy';
 import PricingPage from './pages/PricingPage';
 import StudyStudio from './pages/StudyStudio';
+import CourseHub from './pages/CourseHub';
 import { TourProvider } from './context/TourContext';
 
 import Onboarding from './pages/Onboarding';
@@ -51,6 +52,7 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/courses" element={<Courses />} />
           <Route path="/courses/:courseId" element={<CourseDetails />} />
+          <Route path="/courses/:courseId/hub" element={<CourseHub />} />
           <Route path="/courses/:courseId/studio" element={<StudyStudio />} />
           <Route path="/assignments" element={<Assignments />} />
           <Route path="/planner" element={<Planner />} />

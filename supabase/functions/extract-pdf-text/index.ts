@@ -1,154 +1,199 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL')
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+const log = (msg: string) => {
+    console.log(`[PDF-Text-V7-InfiniteScale] ${msg}`)
+}
+
+async function fetchWithTimeout(url: string, options: any = {}, timeout = 15000) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(id);
+        return response;
+    } catch (e) {
+        clearTimeout(id);
+        throw e;
+    }
 }
 
 serve(async (req) => {
-    if (req.method === 'OPTIONS') {
-        return new Response(null, { headers: corsHeaders })
-    }
+    if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
     try {
-        console.log('=== Extract PDF Text Function Called ===')
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+        const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
+
+        if (!openaiApiKey) throw new Error('Missing OPENAI_API_KEY')
+
         const body = await req.json()
-        console.log('Request body:', JSON.stringify(body))
-
-        const { pdf_id, user_id, course_id } = body
-
-        if (!pdf_id || !user_id || !course_id) {
-            throw new Error(`Missing required parameters: pdf_id=${pdf_id}, user_id=${user_id}, course_id=${course_id}`)
-        }
-
+        const { pdf_id, user_id, course_id, action = 'start', assistant_id: provAsstId, thread_id: provThId, run_id: provRunId } = body
         const supabase = createClient(supabaseUrl!, supabaseServiceKey!)
 
-        // Get PDF file info
-        const { data: pdfFile, error: pdfError } = await supabase
-            .from('pdf_files')
-            .select('file_path, file_name')
-            .eq('id', pdf_id)
-            .single()
+        // --- POLL ACTION ---
+        if (action === 'poll') {
+            log(`Polling Run: ${provRunId}`)
+            const pollResp = await fetchWithTimeout(`https://api.openai.com/v1/threads/${provThId}/runs/${provRunId}`, {
+                headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'OpenAI-Beta': 'assistants=v2' }
+            })
+            if (!pollResp.ok) throw new Error(`OpenAI Poll API error: ${pollResp.status}`)
 
-        if (pdfError || !pdfFile) {
-            throw new Error('PDF file not found')
-        }
+            const pollData = await pollResp.json()
+            const status = pollData.status
 
-        console.log('PDF file:', pdfFile)
+            if (status === 'completed') {
+                log('Run completed! Fetching text...')
+                const msgResp = await fetchWithTimeout(`https://api.openai.com/v1/threads/${provThId}/messages`, {
+                    headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'OpenAI-Beta': 'assistants=v2' }
+                })
+                const msgData = await msgResp.json()
+                const extractedText = msgData.data.find((m: any) => m.role === 'assistant')?.content?.[0]?.text?.value
 
-        // Download the PDF from storage
-        const { data: fileData, error: downloadError } = await supabase.storage
-            .from('course_materials')
-            .download(pdfFile.file_path)
+                if (!extractedText) throw new Error('AI returned no text.')
 
-        if (downloadError) {
-            console.error('Download error:', downloadError)
-            throw new Error(`Failed to download PDF: ${downloadError.message}`)
-        }
+                // Robust DB Save: Delete then Insert
+                log(`[POLL] Saving text for pdf_id: ${pdf_id}`)
+                await supabase.from('course_docs').delete().eq('pdf_id', pdf_id)
 
-        console.log('PDF downloaded, size:', fileData.size)
+                const { data: pdfFile, error: fetchErr } = await supabase.from('pdf_files').select('file_name').eq('id', pdf_id).single()
+                if (fetchErr) log(`⚠️ Could not fetch file_name for doc save: ${fetchErr.message}`)
+                const { error: insError } = await supabase.from('course_docs').insert({
+                    user_id, course_id, pdf_id,
+                    file_name: pdfFile?.file_name || 'syllabus.pdf',
+                    page_number: 1, content: extractedText,
+                    metadata: { source: 'openai_v7_infinite', extracted_at: new Date().toISOString() }
+                })
 
-        // Use pdf.co free API for PDF to text conversion
-        const formData = new FormData()
-        formData.append('file', fileData, pdfFile.file_name)
+                if (insError) throw new Error(`Database Save Failed: ${insError.message}`)
 
-        console.log('Calling PDF.co API for text extraction...')
+                log('Cleanup OpenAI Resources (keeping file for Step 3)...')
+                try {
+                    await fetch(`https://api.openai.com/v1/assistants/${provAsstId}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'OpenAI-Beta': 'assistants=v2' }
+                    })
+                } catch (e) { log(`Cleanup Warning: ${e.message}`) }
 
-        const response = await fetch('https://api.pdf.co/v1/pdf/convert/to/text', {
-            method: 'POST',
-            headers: {
-                'x-api-key': 'demo' // Using demo key - you can get a free key at pdf.co
-            },
-            body: formData
-        })
+                return new Response(JSON.stringify({ success: true, status: 'completed' }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                })
+            }
 
-        if (!response.ok) {
-            throw new Error(`PDF.co API error: ${response.statusText}`)
-        }
+            if (['failed', 'expired', 'cancelled'].includes(status)) {
+                throw new Error(`AI Job failed with status: ${status}`)
+            }
 
-        const result = await response.json()
-
-        if (!result.url) {
-            throw new Error('Failed to extract text from PDF')
-        }
-
-        // Download the extracted text
-        const textResponse = await fetch(result.url)
-        const extractedText = await textResponse.text()
-
-        console.log(`Extracted ${extractedText.length} characters of text`)
-
-        if (!extractedText || extractedText.length < 50) {
-            throw new Error('Insufficient text extracted from PDF. Please ensure the PDF contains readable text.')
-        }
-
-        // Split into pages (approximate - we'll treat every ~3000 chars as a page)
-        const charsPerPage = 3000
-        const numPages = Math.ceil(extractedText.length / charsPerPage)
-
-        const pages = []
-        for (let i = 0; i < numPages; i++) {
-            const start = i * charsPerPage
-            const end = Math.min((i + 1) * charsPerPage, extractedText.length)
-            const pageText = extractedText.substring(start, end)
-            pages.push({
-                page_number: i + 1,
-                content: pageText
+            return new Response(JSON.stringify({ success: true, status }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             })
         }
 
-        // Save to course_docs table
-        console.log(`Saving ${pages.length} pages to database...`)
+        // --- START ACTION ---
+        log(`[START] Querying pdf_id: ${pdf_id}`)
+        const { data: pdfFile, error: pdfError } = await supabase
+            .from('pdf_files')
+            .select('file_path, file_name, openai_file_id')
+            .eq('id', pdf_id)
+            .single()
 
-        // First, delete any existing entries for this PDF
-        await supabase
-            .from('course_docs')
-            .delete()
-            .eq('pdf_id', pdf_id)
+        if (pdfError) {
+            log(`❌ DB Error: ${pdfError.message} (Code: ${pdfError.code})`)
+            throw new Error(`PDF Registry Error: ${pdfError.message}`)
+        }
+        if (!pdfFile) {
+            log(`❌ PDF Fail: ID ${pdf_id} not found.`)
+            throw new Error(`PDF not found in database (ID: ${pdf_id})`)
+        }
+        log(`✅ PDF Found: ${pdfFile.file_name}`)
 
-        // Insert new entries
-        const docsToInsert = pages.map(p => ({
-            user_id,
-            course_id,
-            pdf_id,
-            page_number: p.page_number,
-            content: p.content
-        }))
+        let fileId = pdfFile.openai_file_id;
 
-        const { error: insertError } = await supabase
-            .from('course_docs')
-            .insert(docsToInsert)
+        if (!fileId) {
+            log('Uploading new file to OpenAI...')
+            const { data: fileData, error: dlError } = await supabase.storage.from('course_materials').download(pdfFile.file_path)
+            if (dlError || !fileData) throw new Error(`Download failed: ${dlError?.message}`)
 
-        if (insertError) {
-            console.error('Insert error:', insertError)
-            throw new Error(`Failed to save extracted text: ${insertError.message}`)
+            const formData = new FormData()
+            formData.append('file', fileData, pdfFile.file_name)
+            formData.append('purpose', 'assistants')
+
+            const upResp = await fetchWithTimeout('https://api.openai.com/v1/files', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${openaiApiKey}` },
+                body: formData
+            }, 30000)
+            const upData = await upResp.json()
+            fileId = upData.id
+
+            // Save for future use
+            await supabase.from('pdf_files').update({ openai_file_id: fileId }).eq('id', pdf_id)
+            log(`File uploaded and saved: ${fileId}`)
+        } else {
+            log(`Reusing existing file: ${fileId}`)
         }
 
-        console.log('✅ Text extraction complete!')
+        // 1. Create Assistant
+        log('Creating Assistant...')
+        const asstResp = await fetchWithTimeout('https://api.openai.com/v1/assistants', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${openaiApiKey}`,
+                'Content-Type': 'application/json',
+                'OpenAI-Beta': 'assistants=v2'
+            },
+            body: JSON.stringify({
+                instructions: "Extract all text from the attached PDF. RAW TEXT ONLY. NO MARKDOWN.",
+                model: "gpt-4o-mini",
+                tools: [{ type: "file_search" }]
+            })
+        }, 15000)
+        if (!asstResp.ok) throw new Error(`Assistant creation failed: ${asstResp.status}`)
+        const { id: assistantId } = await asstResp.json()
+
+        // 2. Combined Create Thread and Run
+        log('Starting Run...')
+        const runResp = await fetchWithTimeout('https://api.openai.com/v1/threads/runs', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${openaiApiKey}`,
+                'Content-Type': 'application/json',
+                'OpenAI-Beta': 'assistants=v2'
+            },
+            body: JSON.stringify({
+                assistant_id: assistantId,
+                thread: {
+                    messages: [{
+                        role: 'user', content: 'Extract text.',
+                        attachments: [{ file_id: fileId, tools: [{ type: 'file_search' }] }]
+                    }]
+                }
+            })
+        }, 20000)
+
+        if (!runResp.ok) throw new Error(`OpenAI Run Start Error: ${runResp.status}`)
+        const run = await runResp.json()
 
         return new Response(JSON.stringify({
-            success: true,
-            pages: pages.length,
-            total_chars: extractedText.length
+            success: true, status: 'queued',
+            assistant_id: assistantId,
+            thread_id: run.thread_id,
+            run_id: run.id
         }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
 
     } catch (error: any) {
-        console.error('=== Text Extraction Error ===')
-        console.error('Error message:', error.message)
-        console.error('Error stack:', error.stack)
-
-        return new Response(JSON.stringify({
-            success: false,
-            error: error.message || 'Unknown error occurred'
-        }), {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        log(`❌ FATAL: ${error.message}`)
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+            status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
     }
 })

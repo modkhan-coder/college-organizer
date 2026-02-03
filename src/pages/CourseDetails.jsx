@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { ArrowLeft, Upload, FileText, Brain, MessageSquare, HelpCircle, Trash2, RefreshCw, Mic, Volume2, Square, TrendingUp, Calculator, Lock } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Brain, MessageSquare, HelpCircle, Trash2, RefreshCw, Mic, Volume2, Square, TrendingUp, Calculator, Lock, Link as LinkIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { extractTextFromPdf, chunkText } from '../utils/pdfProcessor';
 import { generateStudyGuide, generateQuiz, chatWithDocuments, searchContext } from '../lib/ai';
@@ -320,6 +320,27 @@ const CourseDetails = () => {
             {/* Tabs */}
             <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: '24px', overflowX: 'auto' }}>
                 <TabButton id="overview" label="Overview" icon={<FileText size={18} />} activeTab={activeTab} setActiveTab={setActiveTab} />
+                <button
+                    onClick={() => navigate(`/courses/${courseId}/hub`)}
+                    style={{
+                        flex: 1,
+                        minWidth: '120px',
+                        padding: '16px',
+                        background: 'none',
+                        border: 'none',
+                        borderBottom: '2px solid transparent',
+                        color: 'var(--text-secondary)',
+                        fontWeight: 'normal',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    <LinkIcon size={18} /> Hub
+                </button>
                 <TabButton id="materials" label="Materials" icon={<Upload size={18} />} activeTab={activeTab} setActiveTab={setActiveTab} />
                 <button
                     onClick={() => navigate(isPremium ? `/courses/${courseId}/studio` : '/pricing')}

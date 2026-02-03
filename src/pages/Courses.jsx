@@ -3,15 +3,32 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { supabase } from '../lib/supabase';
 import { Plus, Edit2, Trash2, Book, ExternalLink, Clock, FileText, Edit3 } from 'lucide-react';
 import Modal from '../components/Modal';
 import SyllabusImportWizard from '../components/SyllabusImportWizard';
 
 const Courses = () => {
-    const { courses, addCourse, updateCourse, deleteCourse, user } = useApp();
+    const { courses, addCourse, updateCourse, deleteCourse, loadSupabaseData, user } = useApp();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCourse, setEditingCourse] = useState(null);
-    const [creationMethod, setCreationMethod] = useState(null); // 'manual' | 'syllabus'
+    const [creationMethod, setCreationMethod] = useState(null);
+    const [isCleaning, setIsCleaning] = useState(false);
+
+    const handleCleanup = async () => {
+        setIsCleaning(true);
+        try {
+            const { error } = await supabase.from('courses').delete().eq('user_id', user.id).eq('code', 'TEMP');
+            if (error) throw error;
+            await loadSupabaseData(user);
+            alert('Cleanup complete! Any temporary processing courses have been removed.');
+        } catch (err) {
+            console.error('Cleanup failed:', err);
+            alert('Cleanup failed. Please try again or refresh.');
+        } finally {
+            setIsCleaning(false);
+        }
+    }; // 'manual' | 'syllabus'
 
     const handleEdit = (course) => {
         setEditingCourse(course);
@@ -34,9 +51,21 @@ const Courses = () => {
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
                 <h1 className="page-title" style={{ margin: 0 }}>Courses</h1>
-                <button className="btn btn-primary" onClick={handleAdd}>
-                    <Plus size={20} /> Add Course
-                </button>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                    {/* Ghost Course Cleanup Hidden
+                    <button
+                        className="btn"
+                        onClick={handleCleanup}
+                        style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
+                        disabled={isCleaning}
+                    >
+                        {isCleaning ? 'Cleaning...' : 'Clean Ghost Courses'}
+                    </button>
+                    */}
+                    <button className="btn btn-primary" onClick={handleAdd}>
+                        <Plus size={20} /> Add Course
+                    </button>
+                </div>
             </div>
 
             {courses.length === 0 ? (
@@ -72,6 +101,9 @@ const Courses = () => {
                 onSubmit={(data) => {
                     if (editingCourse) {
                         updateCourse(editingCourse.id, data);
+                    } else if (data.id) {
+                        // Inherited from SyllabusImportWizard Draft
+                        updateCourse(data.id, data);
                     } else {
                         addCourse({ ...data, color: `hsl(${Math.random() * 360}, 70%, 60%)` });
                     }
@@ -333,37 +365,12 @@ F: 0-59`;
 export default Courses;
 
 // Wrapper that handles method selection  
-const CourseFormWrapper = ({isOpen, onClose, initialData, creationMethod, setCreationMethod, user, onSubmit}) => {
+const CourseFormWrapper = ({ isOpen, onClose, initialData, creationMethod, setCreationMethod, user, onSubmit }) => {
+    // If editing, show the form directly
     if (initialData) {
-        return <Modal isOpen={isOpen} onClose={onClose} title="Edit Course"><CourseForm isOpen={isOpen} onClose={onClose} initialData={initialData} onSubmit={onSubmit} /></Modal>;
+        return <CourseForm isOpen={isOpen} onClose={onClose} initialData={initialData} onSubmit={onSubmit} />;
     }
-    if (!creationMethod) {
-        return (
-            <Modal isOpen={isOpen} onClose={onClose} title="Add Course">
-                <div style={{padding: '24px'}}>
-                    <h2 style={{marginBottom: '8px', textAlign: 'center'}}>How would you like to add this course?</h2>
-                    <p style={{color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '32px'}}>Choose a method to get started</p>
-                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px'}}>
-                        <button onClick={() => setCreationMethod('manual')} style={{all: 'unset', cursor: 'pointer', padding: '24px', border: '2px solid var(--border)', borderRadius: '12px', textAlign: 'center', transition: 'all 0.2s', background: 'var(--bg-surface)'}} onMouseEnter={e => {e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.transform = 'translateY(-4px)';}} onMouseLeave={e => {e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)';}}>
-                            <Edit3 size={48} style={{color: 'var(--primary)', marginBottom: '16px'}} />
-                            <h3 style={{marginBottom: '8px'}}>Manual Entry</h3>
-                            <p style={{color: 'var(--text-secondary)', fontSize: '0.875rem'}}>Enter course details yourself</p>
-                        </button>
-                        <button onClick={() => setCreationMethod('syllabus')} style={{all: 'unset', cursor: 'pointer', padding: '24px', border: '2px solid var(--border)', borderRadius: '12px', textAlign: 'center', transition: 'all 0.2s', background: 'var(--bg-surface)'}} onMouseEnter={e => {e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.transform = 'translateY(-4px)';}} onMouseLeave={e => {e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)';}}>
-                            <FileText size={48} style={{color: 'var(--primary)', marginBottom: '16px'}} />
-                            <h3 style={{marginBottom: '8px'}}>Import from Syllabus</h3>
-                            <p style={{color: 'var(--text-secondary)', fontSize: '0.875rem'}}>Upload PDF and we'll extract it</p>
-                        </button>
-                    </div>
-                </div>
-            </Modal>
-        );
-    }
-    if (creationMethod === 'manual') {
-        return <Modal isOpen={isOpen} onClose={onClose} title="Add Course"><CourseForm isOpen={isOpen} onClose={onClose} initialData={null} onSubmit={onSubmit} /></Modal>;
-    }
-    if (creationMethod === 'syllabus') {
-        return <Modal isOpen={isOpen} onClose={onClose} title="Import from Syllabus"><SyllabusImportWizard onClose={onClose} onComplete={(courseData) => onSubmit(courseData)} user={user} /></Modal>;
-    }
-    return null;
+
+    // For new courses, go straight to manual entry
+    return <CourseForm isOpen={isOpen} onClose={onClose} initialData={null} onSubmit={onSubmit} />;
 };

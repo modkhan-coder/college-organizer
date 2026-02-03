@@ -60,22 +60,32 @@ const Help = () => {
             icon: <Brain size={20} />,
             content: (
                 <div>
-                    <h3>Unlock Superhuman Study Speed</h3>
-                    <p>Stop drowning in PDFs. Let our AI turn your course materials into actionable study aids.</p>
+                    <h3>Unlock Superhuman Study Speed with PDF Studio</h3>
+                    <p>Stop drowning in PDFs. PDF Studio is your all-in-one AI learning center.</p>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
                         <div className="card" style={{ background: 'var(--bg-surface)', border: '1px solid var(--primary)' }}>
-                            <h4 style={{ color: 'var(--primary)' }}>📄 The Study Guide</h4>
-                            <p style={{ fontSize: '0.9rem' }}>Upload a chapter PDF, click "Generate Guide", and get a perfect summary + checklist instantly.</p>
+                            <h4 style={{ color: 'var(--primary)' }}>📚 PDF Studio</h4>
+                            <p style={{ fontSize: '0.9rem' }}>Go to any Course {'>'} <strong>Docs</strong> tab {'>'} click <strong>"Open Studio"</strong> on any file. This is your command center.</p>
                         </div>
                         <div className="card" style={{ background: 'var(--bg-surface)', border: '1px solid var(--accent)' }}>
-                            <h4 style={{ color: 'var(--accent)' }}>❓ The Infinite Quiz</h4>
-                            <p style={{ fontSize: '0.9rem' }}>Need practice? Generate unlimited quizzes from your actual lecture notes. Test yourself before the real exam.</p>
+                            <h4 style={{ color: 'var(--accent)' }}>📝 3 Modes</h4>
+                            <p style={{ fontSize: '0.9rem' }}>Switch instantly between <strong>Quick Summary</strong>, <strong>Infinite Quiz</strong>, and <strong>Deep Chat</strong>.</p>
                         </div>
                     </div>
 
-                    <h4>💬 Chat with Your Books</h4>
-                    <p>Don't understand a concept? Open the <strong>Chat</strong> tab in any course and ask: <em>"Explain quantum entanglement like I'm 5."</em> It uses your uploaded docs to answer!</p>
+                    <h4>What can PDF Studio do?</h4>
+                    <ul style={{ display: 'grid', gap: '12px', padding: 0, listStyle: 'none' }}>
+                        <li style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px' }}>
+                            <strong>📄 The Study Guide:</strong> Get a perfect chapter summary + key terms checklist in seconds.
+                        </li>
+                        <li style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px' }}>
+                            <strong>❓ The Infinite Quiz:</strong> Generate unlimited practice questions from your actual lecture notes.
+                        </li>
+                        <li style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px' }}>
+                            <strong>💬 Chat with Your Books:</strong> Ask specific questions like <em>"Explain quantum entanglement like I'm 5."</em>
+                        </li>
+                    </ul>
 
                     <div style={{ marginTop: '24px', background: '#f0fdf4', padding: '24px', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
                         <h4 style={{ marginTop: 0, color: '#166534', display: 'flex', alignItems: 'center', gap: '8px' }}>

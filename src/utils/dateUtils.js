@@ -4,8 +4,14 @@ const parseLocalDate = (dateString) => {
     if (!dateString) return new Date(); // Fallback
     if (typeof dateString !== 'string') return new Date(dateString); // Handle Date object
 
-    // Handle ISO string (2026-05-05T...) or simple date (2026-05-05)
-    // We only care about the date part for 'overdue' checks
+    // If it's a full ISO timestamp (from LMS/DB), let the browser handle timezone conversion
+    // e.g., "2026-02-05T05:59:00Z" -> Feb 4th 11:59PM Local
+    if (dateString.includes('T') && dateString.length > 10) {
+        return new Date(dateString);
+    }
+
+    // Handle simple date strings "YYYY-MM-DD" (from <input type="date">)
+    // These should be treated as "Local Midnight" on that specific date
     const cleanDate = dateString.split('T')[0];
 
     // Ensure it looks like a date
