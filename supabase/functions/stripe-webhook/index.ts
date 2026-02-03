@@ -11,7 +11,7 @@ serve(async (req) => {
 
     try {
         const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') as string, {
-            apiVersion: '2022-11-15',
+            apiVersion: '2026-01-28.clover' as any,
             httpClient: Stripe.createFetchHttpClient(),
         })
 
