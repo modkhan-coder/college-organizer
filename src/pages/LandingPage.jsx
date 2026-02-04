@@ -67,7 +67,7 @@ const LandingPage = () => {
 
             {/* CTA */}
             <section style={{ padding: '80px 20px', textAlign: 'center' }}>
-                <div style={{ background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)', color: 'white', borderRadius: '24px', padding: '60px 20px', maxWidth: '1000px', margin: '0 auto' }}>
+                <div style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)', color: 'white', borderRadius: '24px', padding: '60px 20px', maxWidth: '1000px', margin: '0 auto' }}>
                     <h2 style={{ fontSize: '2.5rem', marginBottom: '20px' }}>Ready to Ace This Semester?</h2>
                     <p style={{ fontSize: '1.2rem', opacity: 0.9, marginBottom: '40px' }}>Join thousands of students organizing their academic life today.</p>
                     <Link to="/login" className="btn" style={{ background: 'white', color: 'var(--primary)', padding: '16px 40px', fontSize: '1.1rem', borderRadius: '30px', border: 'none', fontWeight: 'bold' }}>
