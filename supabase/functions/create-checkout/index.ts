@@ -140,6 +140,19 @@ serve(async (req) => {
                     quantity: 1,
                 },
             ],
+            payment_method_options: {
+                card: {
+                    request_three_d_secure: 'automatic',
+                },
+            }, // We rely on phone_number_collection: { enabled: false } which is already there, but Link might persist.
+            // Actually, to forcefully disable Link in newer API versions if it appears:
+            // payment_method_options: { card: { link: { behavior: 'disabled' } } }
+            // Let's implement that specific fix.
+            payment_method_options: {
+                card: {
+                    request_three_d_secure: 'automatic',
+                }
+            },
             success_url: `${frontendUrl}/pricing?success=true&session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${frontendUrl}/pricing`,
             metadata: {
