@@ -47,37 +47,37 @@ function App() {
 
   return (
     <TourProvider>
-      <Layout>
+      <div className="app-container">
         <Routes>
-          {/* Public Routes */}
+          {/* Public Routes - NO SIDEBAR/LAYOUT */}
           <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
           <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Auth />} />
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/help" element={<Help />} />
 
-          {/* Protected Routes */}
-          <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
-          <Route path="/courses" element={<RequireAuth><Courses /></RequireAuth>} />
-          <Route path="/courses/:courseId" element={<RequireAuth><CourseDetails /></RequireAuth>} />
-          <Route path="/courses/:courseId/hub" element={<RequireAuth><CourseHub /></RequireAuth>} />
-          <Route path="/courses/:courseId/studio" element={<RequireAuth><StudyStudio /></RequireAuth>} />
-          <Route path="/assignments" element={<RequireAuth><Assignments /></RequireAuth>} />
-          <Route path="/planner" element={<RequireAuth><Planner /></RequireAuth>} />
-          <Route path="/gpa" element={<RequireAuth><GPA /></RequireAuth>} />
-          <Route path="/analytics" element={<RequireAuth><Analytics /></RequireAuth>} />
-          <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
-          <Route path="/integrations" element={<RequireAuth><Integrations /></RequireAuth>} />
-          <Route path="/achievements" element={<RequireAuth><Achievements /></RequireAuth>} />
-          <Route path="/wrapped" element={<RequireAuth><Wrapped /></RequireAuth>} />
-          <Route path="/social" element={<RequireAuth><Social /></RequireAuth>} />
-          <Route path="/focus" element={<RequireAuth><Focus /></RequireAuth>} />
-          <Route path="/calendar" element={<RequireAuth><Calendar /></RequireAuth>} />
-          <Route path="/notifications" element={<RequireAuth><SocialNotifications /></RequireAuth>} />
-          <Route path="/invite/:inviteId" element={<RequireAuth><Invite /></RequireAuth>} />
+          {/* Protected Routes - WITH SIDEBAR/LAYOUT */}
+          <Route path="/dashboard" element={<RequireAuth><Layout><Dashboard /></Layout></RequireAuth>} />
+          <Route path="/courses" element={<RequireAuth><Layout><Courses /></Layout></RequireAuth>} />
+          <Route path="/courses/:courseId" element={<RequireAuth><Layout><CourseDetails /></Layout></RequireAuth>} />
+          <Route path="/courses/:courseId/hub" element={<RequireAuth><Layout><CourseHub /></Layout></RequireAuth>} />
+          <Route path="/courses/:courseId/studio" element={<RequireAuth><Layout><StudyStudio /></Layout></RequireAuth>} />
+          <Route path="/assignments" element={<RequireAuth><Layout><Assignments /></Layout></RequireAuth>} />
+          <Route path="/planner" element={<RequireAuth><Layout><Planner /></Layout></RequireAuth>} />
+          <Route path="/gpa" element={<RequireAuth><Layout><GPA /></Layout></RequireAuth>} />
+          <Route path="/analytics" element={<RequireAuth><Layout><Analytics /></Layout></RequireAuth>} />
+          <Route path="/profile" element={<RequireAuth><Layout><Profile /></Layout></RequireAuth>} />
+          <Route path="/integrations" element={<RequireAuth><Layout><Integrations /></Layout></RequireAuth>} />
+          <Route path="/achievements" element={<RequireAuth><Layout><Achievements /></Layout></RequireAuth>} />
+          <Route path="/wrapped" element={<RequireAuth><Layout><Wrapped /></Layout></RequireAuth>} />
+          <Route path="/social" element={<RequireAuth><Layout><Social /></Layout></RequireAuth>} />
+          <Route path="/focus" element={<RequireAuth><Layout><Focus /></Layout></RequireAuth>} />
+          <Route path="/calendar" element={<RequireAuth><Layout><Calendar /></Layout></RequireAuth>} />
+          <Route path="/notifications" element={<RequireAuth><Layout><SocialNotifications /></Layout></RequireAuth>} />
+          <Route path="/invite/:inviteId" element={<RequireAuth><Layout><Invite /></Layout></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </Layout>
+      </div>
     </TourProvider>
   );
 }
