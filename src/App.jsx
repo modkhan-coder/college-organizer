@@ -27,6 +27,9 @@ import { TourProvider } from './context/TourContext';
 
 import Onboarding from './pages/Onboarding';
 
+import LandingPage from './pages/LandingPage';
+import RequireAuth from './components/RequireAuth';
+
 function App() {
   const { user, loading } = useApp();
 
@@ -34,42 +37,44 @@ function App() {
     return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--text-secondary)' }}>Loading...</div>;
   }
 
-  if (!user) {
-    return <Auth />;
-  }
-
-  // FORCE ONBOARDING: Check if profile is complete
-  // logic: if school or major is missing, force Onboarding page.
-  const isProfileComplete = user.school && user.major;
-  if (!isProfileComplete) {
-    return <Onboarding />;
+  // FORCE ONBOARDING: Check if profile is complete (only if user logged in)
+  if (user) {
+    const isProfileComplete = user.school && user.major;
+    if (!isProfileComplete) {
+      return <Onboarding />;
+    }
   }
 
   return (
     <TourProvider>
       <Layout>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/courses" element={<Courses />} />
-          <Route path="/courses/:courseId" element={<CourseDetails />} />
-          <Route path="/courses/:courseId/hub" element={<CourseHub />} />
-          <Route path="/courses/:courseId/studio" element={<StudyStudio />} />
-          <Route path="/assignments" element={<Assignments />} />
-          <Route path="/planner" element={<Planner />} />
-          <Route path="/gpa" element={<GPA />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/integrations" element={<Integrations />} />
-          <Route path="/achievements" element={<Achievements />} />
-          <Route path="/wrapped" element={<Wrapped />} />
-          <Route path="/social" element={<Social />} />
-          <Route path="/focus" element={<Focus />} />
-          <Route path="/calendar" element={<Calendar />} />
-          <Route path="/help" element={<Help />} />
-          <Route path="/privacy" element={<Privacy />} />
-          <Route path="/notifications" element={<SocialNotifications />} />
-          <Route path="/invite/:inviteId" element={<Invite />} />
+          {/* Public Routes */}
+          <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
+          <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Auth />} />
           <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/help" element={<Help />} />
+
+          {/* Protected Routes */}
+          <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+          <Route path="/courses" element={<RequireAuth><Courses /></RequireAuth>} />
+          <Route path="/courses/:courseId" element={<RequireAuth><CourseDetails /></RequireAuth>} />
+          <Route path="/courses/:courseId/hub" element={<RequireAuth><CourseHub /></RequireAuth>} />
+          <Route path="/courses/:courseId/studio" element={<RequireAuth><StudyStudio /></RequireAuth>} />
+          <Route path="/assignments" element={<RequireAuth><Assignments /></RequireAuth>} />
+          <Route path="/planner" element={<RequireAuth><Planner /></RequireAuth>} />
+          <Route path="/gpa" element={<RequireAuth><GPA /></RequireAuth>} />
+          <Route path="/analytics" element={<RequireAuth><Analytics /></RequireAuth>} />
+          <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+          <Route path="/integrations" element={<RequireAuth><Integrations /></RequireAuth>} />
+          <Route path="/achievements" element={<RequireAuth><Achievements /></RequireAuth>} />
+          <Route path="/wrapped" element={<RequireAuth><Wrapped /></RequireAuth>} />
+          <Route path="/social" element={<RequireAuth><Social /></RequireAuth>} />
+          <Route path="/focus" element={<RequireAuth><Focus /></RequireAuth>} />
+          <Route path="/calendar" element={<RequireAuth><Calendar /></RequireAuth>} />
+          <Route path="/notifications" element={<RequireAuth><SocialNotifications /></RequireAuth>} />
+          <Route path="/invite/:inviteId" element={<RequireAuth><Invite /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

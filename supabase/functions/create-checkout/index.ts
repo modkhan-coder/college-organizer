@@ -132,6 +132,7 @@ serve(async (req) => {
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
             mode: 'subscription',
+            phone_number_collection: { enabled: false },
             customer: customerId,
             line_items: [
                 {

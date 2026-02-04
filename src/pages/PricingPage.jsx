@@ -160,9 +160,15 @@ const PricingPage = () => {
                         className="btn btn-secondary"
                         style={{ width: '100%', marginBottom: '24px' }}
                         disabled={currentPlan === 'free' || processingPlan === 'free'}
-                        onClick={() => handleUpgrade('free')}
+                        onClick={() => {
+                            if (!user) {
+                                navigate('/login');
+                                return;
+                            }
+                            handleUpgrade('free');
+                        }}
                     >
-                        {processingPlan === 'free' ? 'Processing...' : currentPlan === 'free' ? 'Active Plan' : 'Downgrade'}
+                        {!user ? 'Get Started' : processingPlan === 'free' ? 'Processing...' : currentPlan === 'free' ? 'Active Plan' : 'Downgrade'}
                     </button>
 
                     <Feature included={true} text="3 Courses Max" />
@@ -189,9 +195,15 @@ const PricingPage = () => {
                         className="btn btn-primary"
                         style={{ width: '100%', marginBottom: '24px', background: currentPlan === 'pro' ? 'var(--bg-surface)' : 'var(--accent)', color: currentPlan === 'pro' ? 'var(--text-main)' : 'white' }}
                         disabled={currentPlan === 'pro' || !!processingPlan}
-                        onClick={() => handleUpgrade('pro')}
+                        onClick={() => {
+                            if (!user) {
+                                navigate('/login');
+                                return;
+                            }
+                            handleUpgrade('pro');
+                        }}
                     >
-                        {processingPlan === 'pro' ? 'Processing...' : currentPlan === 'pro' ? 'Active Plan' : `Upgrade to Pro (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`}
+                        {!user ? 'Get Started' : processingPlan === 'pro' ? 'Processing...' : currentPlan === 'pro' ? 'Active Plan' : `Upgrade to Pro (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`}
                     </button>
 
                     <Feature included={true} text="Unlimited Courses" />
@@ -221,9 +233,15 @@ const PricingPage = () => {
                         className="btn btn-secondary"
                         style={{ width: '100%', marginBottom: '24px', borderColor: 'var(--warning)', color: 'var(--warning)' }}
                         disabled={currentPlan === 'premium' || !!processingPlan}
-                        onClick={() => handleUpgrade('premium')}
+                        onClick={() => {
+                            if (!user) {
+                                navigate('/login');
+                                return;
+                            }
+                            handleUpgrade('premium');
+                        }}
                     >
-                        {processingPlan === 'premium' ? 'Processing...' : currentPlan === 'premium' ? 'Active Plan' : `Get Premium (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`}
+                        {!user ? 'Get Started' : processingPlan === 'premium' ? 'Processing...' : currentPlan === 'premium' ? 'Active Plan' : `Get Premium (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`}
                     </button>
 
                     <Feature included={true} text="Everything in Pro" />
