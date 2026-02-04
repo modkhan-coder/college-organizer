@@ -159,7 +159,7 @@ const PricingPage = () => {
                     <button
                         className="btn btn-secondary"
                         style={{ width: '100%', marginBottom: '24px' }}
-                        disabled={currentPlan === 'free' || processingPlan === 'free'}
+                        disabled={!user ? false : (currentPlan === 'free' || processingPlan === 'free')}
                         onClick={() => {
                             if (!user) {
                                 navigate('/login');
