@@ -14,7 +14,7 @@ const Layout = ({ children }) => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const navItems = [
-        { id: 'nav-dashboard', icon: Home, label: 'Dashboard', path: '/' },
+        { id: 'nav-dashboard', icon: Home, label: 'Dashboard', path: '/dashboard' },
         { id: 'nav-courses', icon: BookOpen, label: 'Courses', path: '/courses' },
         { id: 'nav-assignments', icon: CheckSquare, label: 'Assignments', path: '/assignments' },
         { id: 'nav-planner', icon: Calendar, label: 'Planner', path: '/planner' },
@@ -34,6 +34,11 @@ const Layout = ({ children }) => {
     ];
 
     const unreadCount = socialNotifications?.filter(n => !n.is_read).length || 0;
+
+    const isActive = (path) => {
+        if (path === '/') return location.pathname === '/';
+        return location.pathname === path || location.pathname.startsWith(path + '/');
+    };
 
     return (
         <div className="app-layout">
@@ -88,7 +93,7 @@ const Layout = ({ children }) => {
                             key={item.path}
                             id={item.id}
                             to={item.path}
-                            className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
+                            className={`nav-item ${isActive(item.path) ? 'active' : ''}`}
                             onClick={() => setIsMobileMenuOpen(false)}
                         >
                             <item.icon size={20} />
