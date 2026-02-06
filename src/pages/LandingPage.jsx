@@ -18,7 +18,7 @@ const LandingPage = () => {
 
             {/* Hero Section */}
             <header style={{ padding: '80px 20px', textAlign: 'center', maxWidth: '800px', margin: '0 auto' }}>
-                <h1 style={{ fontSize: '3.5rem', fontWeight: '900', lineHeight: '1.2', marginBottom: '24px', background: 'linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                <h1 style={{ fontSize: 'clamp(2.5rem, 8vw, 3.5rem)', fontWeight: '900', lineHeight: '1.2', marginBottom: '24px', background: 'linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                     Your Entire Semester.<br />Organized.
                 </h1>
                 <p style={{ fontSize: '1.25rem', color: 'var(--text-secondary)', marginBottom: '40px', lineHeight: '1.6' }}>

@@ -240,7 +240,7 @@ export const AppProvider = ({ children }) => {
         supabase.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('invites').select('*').eq('creator_id', userId).eq('is_active', true),
         supabase.from('social_connections').select('*').or(`user_id.eq.${userId},target_user_id.eq.${userId}`),
-        supabase.from('study_activity').select('*, profiles(display_name, avatar_url)').order('created_at', { ascending: false }).limit(50),
+        supabase.from('activity_logs').select('*, profiles(display_name, avatar_url)').order('created_at', { ascending: false }).limit(50),
         supabase.from('friend_requests').select('*, profiles:sender_id(display_name, email, avatar_url)').eq('receiver_id', userId).eq('status', 'pending')
       ]).then(([lmsRes, notifRes, inviteRes, connRes, actRes, reqRes]) => {
         if (lmsRes.data) setLmsConnections(lmsRes.data);
@@ -362,6 +362,7 @@ export const AppProvider = ({ children }) => {
       };
       setCourses([...courses, newCourseState]);
       addNotification('Course added successfully!', 'success');
+      logActivity('course_added', `Started a new course: ${course.name} (${course.code})`, { course_id: data.id });
     }
   };
 
@@ -480,6 +481,7 @@ export const AppProvider = ({ children }) => {
           baseXP += 50;
         }
         awardXP(baseXP, baseXP > 100 ? 'Assignment Graded + Ace Bonus' : 'Assignment Graded');
+        logActivity('assignment_completed', `Completed assignment: ${oldAssign.title} (+${earned} pts)`, { assignment_id: id, points: earned });
       }
     }
   };
@@ -1022,14 +1024,14 @@ export const AppProvider = ({ children }) => {
 
   const logActivity = async (type, details, metadata = {}) => {
     // Log to DB
-    await supabase.from('study_activity').insert([{
+    await supabase.from('activity_logs').insert([{
       user_id: user.id,
       type,
       details,
       metadata
     }]);
     // Optimistic or refresh? Simple refresh to show own feed
-    const { data } = await supabase.from('study_activity').select('*, profiles(display_name, avatar_url)').order('created_at', { ascending: false }).limit(50);
+    const { data } = await supabase.from('activity_logs').select('*, profiles(display_name, avatar_url)').order('created_at', { ascending: false }).limit(50);
     if (data) setActivities(data);
   };
 

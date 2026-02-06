@@ -138,6 +138,8 @@ const Social = () => {
                                     <p style={{ margin: '4px 0 0 0' }}>
                                         {act.type === 'task' && "Completed a task: "}
                                         {act.type === 'study_session' && "Finished a study session: "}
+                                        {act.type === 'course_added' && "Started a new course: "}
+                                        {act.type === 'assignment_completed' && "Ace! "}
                                         {act.details}
                                     </p>
                                     {act.metadata?.minutes && (

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BookOpen, Calendar, Users, Brain, Flame, Target, ChevronDown, ChevronRight, HelpCircle, Globe, BarChart2, PlayCircle } from 'lucide-react';
 import { useTour } from '../context/TourContext';
+import './Help.css';
 
 const Help = () => {
     const [activeSection, setActiveSection] = useState('getting-started');
@@ -279,13 +280,8 @@ const Help = () => {
     ];
 
     return (
-        <div style={{
-            height: 'calc(100vh - 100px)', // Fit within viewport, accounting for banner/padding
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden'
-        }}>
-            <div style={{ flexShrink: 0, paddingBottom: '24px' }}>
+        <div className="help-container">
+            <div className="help-header">
                 <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
                     <HelpCircle size={32} color="var(--primary)" />
                     User Guide
@@ -295,51 +291,26 @@ const Help = () => {
                 </p>
             </div>
 
-            <div style={{ display: 'flex', gap: '32px', flex: 1, overflow: 'hidden' }}>
-                {/* Navigation - Independent Scroll */}
-                <div style={{
-                    width: '280px',
-                    flexShrink: 0,
-                    overflowY: 'auto',
-                    paddingRight: '4px' // prevent scrollbar overlap visually
-                }}>
-                    <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
+            <div className="help-layout">
+                {/* Navigation */}
+                <div className="help-sidebar">
+                    <div className="card" style={{ padding: '0' }}>
                         {sections.map(s => (
                             <button
                                 key={s.id}
                                 onClick={() => setActiveSection(s.id)}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '12px',
-                                    width: '100%',
-                                    padding: '16px',
-                                    border: 'none',
-                                    borderLeft: activeSection === s.id ? '4px solid var(--primary)' : '4px solid transparent',
-                                    background: activeSection === s.id ? 'var(--bg-app)' : 'white',
-                                    color: activeSection === s.id ? 'var(--primary)' : 'var(--text-primary)',
-                                    fontWeight: activeSection === s.id ? 'bold' : 'normal',
-                                    cursor: 'pointer',
-                                    textAlign: 'left',
-                                    transition: 'all 0.2s',
-                                    borderBottom: '1px solid var(--border-light)'
-                                }}
+                                className={`help-nav-btn ${activeSection === s.id ? 'active' : ''}`}
                             >
                                 {s.icon}
                                 <span>{s.title}</span>
-                                {activeSection === s.id && <ChevronRight size={16} style={{ marginLeft: 'auto' }} />}
+                                {activeSection === s.id && <ChevronRight size={16} className="chevron" style={{ marginLeft: 'auto' }} />}
                             </button>
                         ))}
                     </div>
                 </div>
 
-                {/* Content - Independent Scroll */}
-                <div style={{
-                    flex: 1,
-                    overflowY: 'auto',
-                    paddingRight: '12px', // Space for scrollbar
-                    paddingBottom: '40px'
-                }}>
+                {/* Content */}
+                <div className="help-content">
                     {sections.map(s => (
                         <div
                             key={s.id}

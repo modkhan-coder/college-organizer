@@ -194,7 +194,7 @@ const Dashboard = () => {
             </div>
 
             {/* Static Grid Layout (Drag Disabled) */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
                 {layout.map(id => (
                     <div key={id} style={{ height: '100%' }}>
                         {renderWidget(id)}

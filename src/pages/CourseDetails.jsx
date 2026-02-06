@@ -350,7 +350,7 @@ const CourseDetails = () => {
                         background: isPremium ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'var(--bg-app)',
                         color: isPremium ? 'white' : 'var(--text-secondary)',
                         border: isPremium ? 'none' : '1px solid var(--border)',
-                        borderRadius: '8px',
+
                         fontSize: '0.95rem',
                         cursor: 'pointer',
                         display: 'flex',

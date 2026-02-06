@@ -17,6 +17,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
+import './StudyStudio.css';
 
 const StudyStudio = () => {
     const { courseId } = useParams();
@@ -32,6 +33,7 @@ const StudyStudio = () => {
     const [uploading, setUploading] = useState(false);
     const [activeTab, setActiveTab] = useState('chat');
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [mobileView, setMobileView] = useState('viewer'); // 'files' | 'viewer' | 'tools'
 
     // Scope & Page Range
     const [scope, setScope] = useState('this');
@@ -712,7 +714,7 @@ const StudyStudio = () => {
     if (!course) return <div style={{ padding: '24px' }}>Loading...</div>;
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)' }}>
+        <div className="studio-container">
             {/* Header */}
             <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)' }}>
                 <button onClick={() => navigate(`/courses/${courseId}`)} className="btn btn-secondary" style={{ marginBottom: '12px' }}>
@@ -748,70 +750,69 @@ const StudyStudio = () => {
             </div>
 
             {/* Main Layout: 3 Panels */}
-            <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr 400px', flex: 1, overflow: 'hidden' }}>
+            <div className="studio-content">
 
                 {/* Left Rail: PDF List */}
-                <div style={{ borderRight: '1px solid var(--border)', padding: '16px', overflowY: 'auto', background: 'var(--bg-surface)' }}>
-                    <label className="btn btn-primary" style={{ width: '100%', marginBottom: '16px', cursor: uploading ? 'wait' : 'pointer', fontSize: '0.9rem' }}>
-                        <Upload size={16} /> {uploading ? 'Uploading...' : 'Add PDF'}
-                        <input type="file" accept=".pdf" hidden onChange={handleUpload} disabled={uploading} />
-                    </label>
+                <div className={`studio-panel studio-files ${mobileView === 'files' ? 'active' : ''}`}>
+                    <div style={{ padding: '16px', height: '100%', overflowY: 'auto' }}>
+                        <label className="btn btn-primary" style={{ width: '100%', marginBottom: '16px', cursor: uploading ? 'wait' : 'pointer', fontSize: '0.9rem' }}>
+                            <Upload size={16} /> {uploading ? 'Uploading...' : 'Add PDF'}
+                            <input type="file" accept=".pdf" hidden onChange={handleUpload} disabled={uploading} />
+                        </label>
 
-                    {pdfFiles.length === 0 ? (
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', textAlign: 'center', marginTop: '32px' }}>
-                            No PDFs yet. Upload course materials to get started.
-                        </p>
-                    ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {pdfFiles.map(pdf => (
-                                <div
-                                    key={pdf.id}
-                                    onClick={() => handleSelectPDF(pdf)}
-                                    style={{
-                                        padding: '12px',
-                                        borderRadius: '8px',
-                                        background: selectedPDF?.id === pdf.id ? 'var(--primary)' : 'var(--bg-app)',
-                                        color: selectedPDF?.id === pdf.id ? 'white' : 'var(--text-main)',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        transition: 'all 0.2s',
-                                        fontSize: '0.9rem'
-                                    }}
-                                >
-                                    <FileText size={16} />
-                                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                                            {pdf.file_name}
-                                        </div>
-                                        <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>{pdf.num_pages} pages</div>
-                                    </div>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); handleDelete(pdf); }}
-                                        style={{ background: 'none', border: 'none', color: 'currentColor', cursor: 'pointer', padding: '4px', opacity: 0.7 }}
+                        {pdfFiles.length === 0 ? (
+                            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', textAlign: 'center', marginTop: '32px' }}>
+                                No PDFs yet.
+                            </p>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {pdfFiles.map(pdf => (
+                                    <div
+                                        key={pdf.id}
+                                        onClick={() => {
+                                            handleSelectPDF(pdf);
+                                            setMobileView('viewer'); // Switch to viewer on selection (mobile)
+                                        }}
+                                        style={{
+                                            padding: '12px',
+                                            borderRadius: '8px',
+                                            background: selectedPDF?.id === pdf.id ? 'var(--primary)' : 'var(--bg-app)',
+                                            color: selectedPDF?.id === pdf.id ? 'white' : 'var(--text-main)',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            transition: 'all 0.2s',
+                                            fontSize: '0.9rem'
+                                        }}
                                     >
-                                        <Trash2 size={14} />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                                        <FileText size={16} />
+                                        <div style={{ flex: 1, overflow: 'hidden' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                                {pdf.file_name}
+                                            </div>
+                                            <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>{pdf.num_pages} pages</div>
+                                        </div>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleDelete(pdf); }}
+                                            style={{ background: 'none', border: 'none', color: 'currentColor', cursor: 'pointer', padding: '4px', opacity: 0.7 }}
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
 
-                    {/* Removed Extract Syllabus Button - feature moved to Add Course flow */}
+                        {/* Removed Extract Syllabus Button - feature moved to Add Course flow */}
+                    </div>
                 </div>
 
                 {/* Center: PDF Viewer */}
-                <div style={{
-                    position: 'relative',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden',
-                    flex: 1
-                }}>
+                <div className={`studio-panel studio-viewer ${mobileView === 'viewer' ? 'active' : ''}`}>
                     {/* Top Bar: Scope & Page Range */}
                     <div style={{
-                        padding: '12px 16px',
+                        padding: '8px 12px',
                         borderBottom: '1px solid var(--border)',
                         background: 'var(--bg-surface)',
                         display: 'flex',
@@ -819,8 +820,9 @@ const StudyStudio = () => {
                         alignItems: 'center',
                         flexWrap: 'wrap'
                     }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Scope:</label>
+                        {/* Mobile Back Button (only looks good if we want to go back to course,
+                        or maybe we just rely on standard nav. Let's keep scope/pages controls here) */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
                             <select
                                 className="input-field"
                                 value={scope}
@@ -828,30 +830,29 @@ const StudyStudio = () => {
                                 style={{ padding: '4px 8px', fontSize: '0.85rem' }}
                             >
                                 <option value="this">This PDF</option>
-                                <option value="multiple">Multiple PDFs</option>
-                                <option value="all">All Course PDFs</option>
+                                <option value="multiple">Multiple</option>
+                                <option value="all">All</option>
                             </select>
-                        </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Pages:</label>
-                            <input
-                                className="input-field"
-                                type="number"
-                                placeholder="Start"
-                                value={pageStart}
-                                onChange={e => setPageStart(e.target.value)}
-                                style={{ width: '60px', padding: '4px 8px', fontSize: '0.85rem' }}
-                            />
-                            <span style={{ color: 'var(--text-secondary)' }}>–</span>
-                            <input
-                                className="input-field"
-                                type="number"
-                                placeholder="End"
-                                value={pageEnd}
-                                onChange={e => setPageEnd(e.target.value)}
-                                style={{ width: '60px', padding: '4px 8px', fontSize: '0.85rem' }}
-                            />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <input
+                                    className="input-field"
+                                    type="number"
+                                    placeholder="#"
+                                    value={pageStart}
+                                    onChange={e => setPageStart(e.target.value)}
+                                    style={{ width: '40px', padding: '4px', fontSize: '0.85rem' }}
+                                />
+                                <span style={{ color: 'var(--text-secondary)' }}>–</span>
+                                <input
+                                    className="input-field"
+                                    type="number"
+                                    placeholder="#"
+                                    value={pageEnd}
+                                    onChange={e => setPageEnd(e.target.value)}
+                                    style={{ width: '40px', padding: '4px', fontSize: '0.85rem' }}
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -859,13 +860,12 @@ const StudyStudio = () => {
                 </div>
 
                 {/* Right Panel: Tabs */}
-                <div style={{
-                    borderLeft: '1px solid var(--border)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden',
-                    ...(isFullscreen && { position: 'fixed', inset: 0, zIndex: 1000, background: 'var(--bg-app)', borderLeft: 'none' })
-                }}>
+                <div
+                    className={`studio-panel studio-tools ${mobileView === 'tools' ? 'active' : ''}`}
+                    style={{
+                        ...(isFullscreen && { position: 'fixed', inset: 0, zIndex: 1000, background: 'var(--bg-app)', borderLeft: 'none' })
+                    }}
+                >
                     {/* Tab Headers */}
                     <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)', alignItems: 'center' }}>
                         <TabButton id="chat" label="Chat" icon={<MessageSquare size={16} />} activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -873,7 +873,7 @@ const StudyStudio = () => {
                         <TabButton id="quiz" label="Quiz" icon={<Brain size={16} />} activeTab={activeTab} setActiveTab={setActiveTab} />
                         <TabButton id="saved" label="Saved" icon={<Star size={16} />} activeTab={activeTab} setActiveTab={setActiveTab} />
 
-                        {/* Fullscreen Toggle */}
+                        {/* Fullscreen Toggle (Desktop only effectively) */}
                         <button
                             onClick={() => setIsFullscreen(!isFullscreen)}
                             style={{
@@ -889,6 +889,7 @@ const StudyStudio = () => {
                                 fontSize: '0.85rem',
                                 transition: 'all 0.2s'
                             }}
+                            className="desktop-only"
                             title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen mode'}
                         >
                             {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
@@ -960,7 +961,7 @@ const StudyStudio = () => {
                                         className="input-field"
                                         value={chatInput}
                                         onChange={e => setChatInput(e.target.value)}
-                                        placeholder={isRecording ? "Recording..." : "Ask a question..."}
+                                        placeholder={isRecording ? "Recording..." : "Ask..."}
                                         disabled={generating || isRecording}
                                         style={{ flex: 1, padding: '8px' }}
                                     />
@@ -1285,6 +1286,31 @@ const StudyStudio = () => {
                     </div>
                 </div>
 
+            </div>
+
+            {/* Mobile Bottom Navigation */}
+            <div className="studio-mobile-nav">
+                <button
+                    className={`studio-mobile-tab ${mobileView === 'files' ? 'active' : ''}`}
+                    onClick={() => setMobileView('files')}
+                >
+                    <FileText size={20} />
+                    <span>Files</span>
+                </button>
+                <button
+                    className={`studio-mobile-tab ${mobileView === 'viewer' ? 'active' : ''}`}
+                    onClick={() => setMobileView('viewer')}
+                >
+                    <BookOpen size={20} />
+                    <span>Reader</span>
+                </button>
+                <button
+                    className={`studio-mobile-tab ${mobileView === 'tools' ? 'active' : ''}`}
+                    onClick={() => setMobileView('tools')}
+                >
+                    <Brain size={20} />
+                    <span>Tools</span>
+                </button>
             </div>
         </div>
     );

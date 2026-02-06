@@ -19,6 +19,8 @@ import Social from './pages/Social';
 import Focus from './pages/Focus';
 import Calendar from './pages/Calendar';
 import Help from './pages/Help';
+import Feedback from './pages/Feedback';
+import Admin from './pages/Admin';
 import Privacy from './pages/Privacy';
 import PricingPage from './pages/PricingPage';
 import StudyStudio from './pages/StudyStudio';
@@ -53,11 +55,14 @@ function App() {
           <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
           <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Auth />} />
           <Route path="/pricing" element={<PricingPage />} />
-          <Route path="/privacy" element={<Privacy />} />
-          <Route path="/help" element={<Help />} />
+          <Route path="/pricing" element={<PricingPage />} />
 
           {/* Protected Routes - WITH SIDEBAR/LAYOUT */}
           <Route path="/dashboard" element={<RequireAuth><Layout><Dashboard /></Layout></RequireAuth>} />
+          <Route path="/admin" element={<RequireAuth><Layout><Admin /></Layout></RequireAuth>} />
+          <Route path="/feedback" element={<RequireAuth><Layout><Feedback /></Layout></RequireAuth>} />
+          <Route path="/help" element={<RequireAuth><Layout><Help /></Layout></RequireAuth>} />
+          <Route path="/privacy" element={<RequireAuth><Layout><Privacy /></Layout></RequireAuth>} />
           <Route path="/courses" element={<RequireAuth><Layout><Courses /></Layout></RequireAuth>} />
           <Route path="/courses/:courseId" element={<RequireAuth><Layout><CourseDetails /></Layout></RequireAuth>} />
           <Route path="/courses/:courseId/hub" element={<RequireAuth><Layout><CourseHub /></Layout></RequireAuth>} />

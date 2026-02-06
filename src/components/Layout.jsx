@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, BookOpen, Calendar, CheckSquare, BarChart2, User, Flame, Globe, Trophy, Bell, Users, Target, CalendarRange, HelpCircle, Shield } from 'lucide-react';
+import { Home, BookOpen, Calendar, CheckSquare, BarChart2, User, Flame, Globe, Trophy, Bell, Users, Target, CalendarRange, HelpCircle, Shield, Menu, X, MessageCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useState } from 'react';
 import Banner from './Banner';
@@ -11,6 +11,7 @@ const Layout = ({ children }) => {
     const location = useLocation();
     const { appNotifications, socialNotifications } = useApp();
     const [isPanicOpen, setIsPanicOpen] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const navItems = [
         { id: 'nav-dashboard', icon: Home, label: 'Dashboard', path: '/' },
@@ -24,18 +25,38 @@ const Layout = ({ children }) => {
         { icon: Trophy, label: 'Achievements', path: '/achievements' },
         { icon: Target, label: 'Focus Mode', path: '/focus' },
         { icon: Users, label: 'Social', path: '/social' },
+        { icon: MessageCircle, label: 'Feedback', path: '/feedback' },
         { id: 'nav-help', icon: HelpCircle, label: 'Help & Guide', path: '/help' },
         { icon: Shield, label: 'Privacy', path: '/privacy' },
         { icon: User, label: 'Profile', path: '/profile' },
+        // Admin Link (Only for specific email)
+        ...(useApp().user?.email === 'modkhan20@gmail.com' ? [{ icon: Shield, label: 'Admin', path: '/admin' }] : []),
     ];
 
     const unreadCount = socialNotifications?.filter(n => !n.is_read).length || 0;
 
     return (
         <div className="app-layout">
-            <aside className="sidebar">
+            {/* Mobile Header (Only visible on < 768px via CSS) */}
+            <div className="mobile-header">
+                <button className="menu-btn" onClick={() => setIsMobileMenuOpen(true)}>
+                    <Menu size={24} />
+                </button>
+                <h2>College Org</h2>
+                <div style={{ width: 24 }}></div> {/* Spacer for center alignment */}
+            </div>
+
+            {/* Mobile Overlay */}
+            {isMobileMenuOpen && (
+                <div className="mobile-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>
+            )}
+
+            <aside className={`sidebar ${isMobileMenuOpen ? 'open' : ''}`}>
                 <div className="sidebar-header">
                     <h2>College Org</h2>
+                    <button className="close-menu-btn" onClick={() => setIsMobileMenuOpen(false)}>
+                        <X size={24} />
+                    </button>
                 </div>
 
                 <button
@@ -68,6 +89,7 @@ const Layout = ({ children }) => {
                             id={item.id}
                             to={item.path}
                             className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
+                            onClick={() => setIsMobileMenuOpen(false)}
                         >
                             <item.icon size={20} />
                             <span>{item.label}</span>
@@ -77,6 +99,7 @@ const Layout = ({ children }) => {
                         to="/notifications"
                         className={`nav-item ${location.pathname === '/notifications' ? 'active' : ''}`}
                         style={{ position: 'relative' }}
+                        onClick={() => setIsMobileMenuOpen(false)}
                     >
                         <Bell size={20} />
                         <span>Notifications</span>

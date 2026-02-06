@@ -81,7 +81,7 @@ serve(async (req) => {
         console.log("Calling OpenAI...")
         const completion = await openai.chat.completions.create({
             messages: [{ role: "system", content: "You are a helpful assistant that outputs JSON." }, { role: "user", content: prompt }],
-            model: "gpt-3.5-turbo-0125",
+            model: "gpt-4o-mini",
             response_format: { type: "json_object" }
         })
 

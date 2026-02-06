@@ -1,0 +1,158 @@
+.help-container {
+    /* Remove fixed height to allow natural window scrolling */
+    min-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.help-header {
+    flex-shrink: 0;
+    padding-bottom: 24px;
+}
+
+.help-layout {
+    display: flex;
+    gap: 32px;
+    flex: 1;
+    /* Remove overflow hidden to prevent clipping */
+    position: relative;
+    align-items: flex-start;
+    /* Important for sticky sidebar */
+}
+
+.help-sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    /* Sticky position for desktop */
+    position: sticky;
+    top: 24px;
+    /* Space from top of viewport */
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.help-content {
+    flex: 1;
+    /* Content scrolls naturally with the page */
+    padding-right: 0;
+    padding-bottom: 40px;
+}
+
+.help-nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-left: 4px solid transparent;
+    background: white;
+    color: var(--text-primary);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.help-nav-btn.active {
+    border-left-color: var(--primary);
+    background: var(--bg-app);
+    color: var(--primary);
+    font-weight: bold;
+}
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+    .help-container {
+        height: auto;
+        min-height: calc(100vh - 80px);
+        /* Adjust for mobile header */
+        padding-bottom: 80px;
+        /* Space for bottom nav if exists, or just padding */
+    }
+
+    .help-header {
+        padding: 16px;
+        padding-bottom: 16px;
+    }
+
+    .help-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .help-layout {
+        flex-direction: column;
+        gap: 16px;
+        overflow: visible;
+        /* Let page scroll naturally on mobile */
+    }
+
+    .help-sidebar {
+        width: 100%;
+        overflow-x: auto;
+        padding: 0 16px;
+        white-space: nowrap;
+        display: flex;
+        gap: 8px;
+        padding-bottom: 8px;
+        /* Scrollbar space */
+        background: var(--bg-surface);
+        position: sticky;
+        top: 60px;
+        /* Below mobile header */
+        z-index: 10;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .help-sidebar .card {
+        display: flex;
+        flex-direction: row;
+        border-radius: 0;
+        border: none;
+        background: none;
+        padding: 0;
+        gap: 8px;
+        width: max-content;
+        /* Allow card to grow beyond screen width for scrolling */
+        min-width: 100%;
+    }
+
+    .help-nav-btn {
+        width: auto;
+        border-left: none;
+        border-bottom: 2px solid transparent;
+        border-radius: 20px;
+        padding: 8px 16px;
+        background: var(--bg-app);
+        flex-shrink: 0;
+        font-size: 0.9rem;
+    }
+
+    .help-nav-btn.active {
+        border-left: none;
+        border-bottom: 2px solid transparent;
+        /* Using pill style instead */
+        background: var(--primary);
+        color: white;
+    }
+
+    .help-nav-btn svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    /* Hide chevron on mobile */
+    .help-nav-btn .chevron {
+        display: none;
+    }
+
+    .help-content {
+        padding: 0 16px;
+        overflow: visible;
+    }
+
+    .help-content .card {
+        padding: 20px !important;
+    }
+}

@@ -1,0 +1,142 @@
+.studio-container {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 80px);
+    /* Adjust based on navbar height */
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+}
+
+.studio-content {
+    display: grid;
+    grid-template-columns: 250px 1fr 400px;
+    flex: 1;
+    overflow: hidden;
+}
+
+.studio-panel {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.studio-files {
+    border-right: 1px solid var(--border);
+    background: var(--bg-surface);
+    overflow-y: auto;
+}
+
+.studio-viewer {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.studio-tools {
+    border-left: 1px solid var(--border);
+    background: var(--bg-surface);
+}
+
+.studio-mobile-nav {
+    display: none;
+    /* Hidden on desktop */
+}
+
+/* Tablet / Small Laptop - Shrink tools */
+@media (max-width: 1200px) {
+    .studio-content {
+        grid-template-columns: 200px 1fr 350px;
+    }
+}
+
+/* iPad / Tablet Portrait - Collapsible Files */
+@media (max-width: 1024px) {
+    .studio-content {
+        grid-template-columns: 0px 1fr 350px;
+        /* Hide files by default or make drawer */
+    }
+
+    .studio-files {
+        display: none;
+        /* For now, or implement drawer toggle */
+    }
+
+    /* If we want a drawer, we'd need extra logic. 
+       For this fix, we'll stick to a simpler mobile-like approach for tablets 
+       if the user forces it, but let's just optimize for Mobile Phone first. */
+}
+
+/* Mobile Phone Styles */
+@media (max-width: 768px) {
+    .studio-container {
+        height: calc(100vh - 120px);
+        /* Adjust for header + mobile nav bar */
+    }
+
+    .studio-content {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
+    }
+
+    .studio-panel {
+        display: none;
+        /* Hide all by default */
+        width: 100%;
+        height: 100%;
+        border: none;
+    }
+
+    .studio-panel.active {
+        display: flex;
+    }
+
+    /* Mobile Bottom Navigation for Studio */
+    .studio-mobile-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        height: 60px;
+        background: var(--bg-surface);
+        border-top: 1px solid var(--border);
+        /* position: fixed; bottom: 0; left: 0; right: 0; */
+        /* Flex positioning handles it now */
+        z-index: 90;
+    }
+
+    .studio-mobile-tab {
+        flex: 1;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        gap: 4px;
+        cursor: pointer;
+    }
+
+    .studio-mobile-tab.active {
+        color: var(--primary);
+    }
+
+    /* Adjust PDF Viewer for mobile */
+    .studio-viewer {
+        width: 100vw;
+    }
+
+    /* Adjust Tools for mobile */
+    .studio-tools {
+        width: 100vw;
+    }
+
+    .page-title {
+        font-size: 1.2rem;
+    }
+}
