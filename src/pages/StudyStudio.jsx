@@ -262,27 +262,39 @@ const StudyStudio = () => {
 
         try {
             const filePath = `${user.id}/${courseId}/${file.name}`;
+
+            // 1. Upload to Storage (Allow Overwrite)
             const { error: uploadError } = await supabase.storage
                 .from('course_materials')
-                .upload(filePath, file);
+                .upload(filePath, file, { upsert: true });
 
             if (uploadError) throw uploadError;
 
             const { numPages, pages } = await extractTextFromPdf(file);
 
+            // 2. Upsert PDF Record (Create or Update)
             const { data: pdfRecord, error: pdfError } = await supabase
                 .from('pdf_files')
-                .insert({
+                .upsert({
                     user_id: user.id,
                     course_id: courseId,
                     file_name: file.name,
                     file_path: filePath,
-                    num_pages: numPages
-                })
+                    num_pages: numPages,
+                    uploaded_at: new Date().toISOString()
+                }, { onConflict: 'user_id,course_id,file_name' })
                 .select()
                 .single();
 
             if (pdfError) throw pdfError;
+
+            // 3. Clean up old chunks for this PDF (to avoid duplicates on re-upload)
+            const { error: deleteError } = await supabase
+                .from('course_docs')
+                .delete()
+                .eq('pdf_id', pdfRecord.id);
+
+            if (deleteError) console.warn('Warning: Could not clear old docs', deleteError);
 
             const chunks = chunkTextByPage(pages);
             const docRecords = chunks.map(chunk => ({
