@@ -238,18 +238,32 @@ const StudyStudio = () => {
 
     const handleSelectPDF = async (pdf) => {
         setSelectedPDF(pdf);
-
-        // Load persisted content for this PDF FIRST
-        // This will either load saved data or clear if none exists
         loadPersistedContent(pdf.id);
 
-        const { data } = await supabase.storage
-            .from('course_materials')
-            .download(pdf.file_path);
+        try {
+            // Use Edge Function Proxy to bypass CORS on custom domains
+            const { data, error } = await supabase.functions.invoke('download-pdf', {
+                body: { filePath: pdf.file_path },
+                responseType: 'blob'
+            });
 
-        if (data) {
-            const url = URL.createObjectURL(data);
-            setCurrentFileUrl(url);
+            if (error) throw error;
+
+            if (data) {
+                const url = URL.createObjectURL(data);
+                setCurrentFileUrl(url);
+            }
+        } catch (error) {
+            console.error('Proxy download error, falling back to storage:', error);
+            // Fallback to direct storage (works on localhost/preview)
+            const { data } = await supabase.storage
+                .from('course_materials')
+                .download(pdf.file_path);
+
+            if (data) {
+                const url = URL.createObjectURL(data);
+                setCurrentFileUrl(url);
+            }
         }
     };
 
