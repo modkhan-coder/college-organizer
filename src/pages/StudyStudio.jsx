@@ -21,6 +21,7 @@ import './StudyStudio.css';
 
 const StudyStudio = () => {
     const { courseId } = useParams();
+    console.log('DEBUG: PDF Studio v2.2 - Layout Fix Applied'); // Deployment Check
     const navigate = useNavigate();
     const { user, courses, addNotification } = useApp();
     const isPremium = user?.plan === 'premium';
