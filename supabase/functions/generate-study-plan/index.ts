@@ -27,33 +27,30 @@ serve(async (req) => {
         const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
         if (authError || !user) throw new Error('Unauthorized: ' + (authError?.message || 'No user'))
 
-        // Check Plan & Limits
-        const { data: profile } = await supabaseClient.from('profiles').select('plan').eq('id', user.id).single()
-        const { data: stats } = await supabaseClient.from('user_stats').select('ai_usage_count, ai_last_reset').eq('user_id', user.id).single()
+        // Check Plan
+        const { data: profile } = await supabaseClient
+            .from('profiles')
+            .select('plan')
+            .eq('id', user.id)
+            .single()
 
-        const plan = profile?.plan || 'free'
-        let usage = parseFloat(stats?.ai_usage_count || 0)
-        const limit = (plan === 'premium' || plan === 'pro') ? 50 : 0
-
-        // Strict Premium Check (Study Plan is a premium feature?) 
-        // Original code said: if (profile?.plan !== 'premium') throw error. 
-        // User's prompt implies limits apply. "Keep 50 credits".
-        // If plan is 'pro' (limit 50), they should be allowed if they have credits?
-        // Let's stick to the existing strict check + limit check.
-
-        if (profile?.plan !== 'premium' && profile?.plan !== 'pro') {
-            // Allow pro too if they have credits? Original was strict premium. 
-            // I'll keep strict premium for now if that was the rule, OR relax it? 
-            // "Keep 50 credits" implies usage-based.
-            // I will assume PRO users also get 50 credits and should be allowed.
-            // But if the feature is "Premium Only", then Pro users can't use it regardless of credits.
-            // The user said "Keep 50 credits", which applies to Pro/Premium.
-            // I will relax the check to allow Pro if they have credits.
+        // Strict Premium Check
+        if (profile?.plan !== 'premium') {
+            throw new Error("Upgrade to Premium to use AI features!");
         }
 
-        if (usage + 1 > limit) {
-            throw new Error(`AI Limit Reached (${usage.toFixed(1)}/${limit}). Please upgrade or wait for next month.`)
+        // Usage Check (Cost = 10)
+        const { data: stats } = await supabaseClient.from('user_stats').select('ai_usage_count').eq('user_id', user.id).single()
+        const usage = stats?.ai_usage_count || 0
+        const limit = 500
+        const COST = 10
+
+        if (usage + COST > limit) {
+            throw new Error(`AI Limit Reached (${usage}/${limit}). Please upgrade.`);
         }
+
+        // Increment Usage
+        await supabaseClient.from('user_stats').update({ ai_usage_count: usage + COST }).eq('user_id', user.id)
 
         // 2. Parse Input
         const { assignments, hoursPerDay } = await req.json()
@@ -104,9 +101,6 @@ serve(async (req) => {
         if (!completion.choices[0].message.content) {
             throw new Error("OpenAI returned empty response")
         }
-
-        // Increment Usage
-        await supabaseClient.from('user_stats').update({ ai_usage_count: usage + 1 }).eq('user_id', user.id)
 
         console.log("OpenAI Response received")
         const result = JSON.parse(completion.choices[0].message.content)
