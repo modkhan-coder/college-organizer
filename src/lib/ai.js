@@ -1,39 +1,22 @@
 import { supabase } from '../lib/supabase';
 
 // Helper to call proxy
-const callAI = async (messages, response_format = null, model = 'gpt-4o') => {
+const callAI = async (messages, response_format = null, model = 'gpt-4o', action = 'generation') => {
     const { data, error } = await supabase.functions.invoke('ai-proxy', {
-        body: { messages, response_format, model }
+        body: { messages, response_format, model, action }
     });
 
     if (error) throw new Error(error.message);
     return data; // Returns full OpenAI response object
 };
 
-// 1. Generate Embeddings (Still client side? No, embeddings proxy needed too? Or skip for now?)
-// Wait, generateEmbedding calls openai.embeddings.create.
-// I need an embedding endpoint too? 
-// Or I can just remove embeddings if we rely on full text context?
-// searchContext uses 'course_docs'. The embeddings are generated on upload? Note: context search uses simple text search in original code step 1370 line 32. It does NOT use embeddings!
-// Line 11: generateEmbedding is EXPORTED. Is it USED?
-// I should check if generateEmbedding is used. 
-// Step 1108 (CourseDetails) seems to use it? 
-// If it's used on Upload, we need a proxy for it.
-// I'll assume for now I only fix Chat/Quiz/Guide.
+// ... (skipping embeddings)
 
-// 2. Search for relevant context (Unchanged, uses Supabase)
+// 2. Search for relevant context (Unchanged)
 export const searchContext = async (courseId, query, fileName = null) => {
-    // ... (Keep existing implementation which queries course_docs) ...
-    // Note: I cannot use "ReplacementContent" with "Keep existing" unless I supply it.
-    // I will rewrite searchContext here to be safe or use multi-replace.
-    // Actually, searchContext used `openai`? No.
-    // It used `supabase` query. Safe.
-
-    // I will just paste the searchContext code back.
     try {
         console.log('Antigravity Debug: Searching context for course:', courseId, 'File:', fileName || 'ALL');
 
-        // Simple Fetch Chunks (Fallback for RAG without RPC)
         let queryBuilder = supabase
             .from('course_docs')
             .select('content, file_name')
@@ -90,7 +73,7 @@ export const generateStudyGuide = async (context, courseName) => {
         const data = await callAI([
             { role: "system", content: "You are a helpful study assistant who outputs professional LaTeX math using $ and $$ delimiters." },
             { role: "user", content: prompt }
-        ]);
+        ], null, 'gpt-4o', 'generation');
         return data.choices[0].message.content;
     } catch (error) {
         console.error('Study Guide Error:', error);
@@ -123,7 +106,9 @@ export const generateQuiz = async (context, courseName) => {
     try {
         const data = await callAI(
             [{ role: "system", content: "You are a quiz generator. Output JSON only." }, { role: "user", content: prompt }],
-            { type: "json_object" }
+            { type: "json_object" },
+            'gpt-4o',
+            'generation'
         );
         return JSON.parse(data.choices[0].message.content);
     } catch (error) {
@@ -144,7 +129,7 @@ export const chatWithDocuments = async (history, context) => {
     ];
 
     try {
-        const data = await callAI(messages);
+        const data = await callAI(messages, null, 'gpt-4o', 'chat');
         return data.choices[0].message.content;
     } catch (error) {
         console.error('Chat Error:', error);
@@ -157,10 +142,6 @@ export const chatWithDocuments = async (history, context) => {
 // PHASE 2: Citation-Aware Generation Functions
 // =====================================================
 
-/**
- * Search context with page metadata for citations
- * Returns chunks with pdf_name and page_number
- */
 export const searchContextWithPages = async (courseId, pdfIds = null, pageStart = null, pageEnd = null) => {
     try {
         // Use the RPC function we created in Phase 1
@@ -178,13 +159,12 @@ export const searchContextWithPages = async (courseId, pdfIds = null, pageStart 
             return { chunks: [], contextText: '' };
         }
 
-        // Build context text with page markers
         const contextText = data.map(chunk =>
             `[Source: ${chunk.pdf_name} p.${chunk.page_number}]\n${chunk.content}`
         ).join('\n\n---\n\n');
 
         return {
-            chunks: data, // Array of { chunk_id, pdf_name, page_number, content, pdf_id }
+            chunks: data,
             contextText
         };
     } catch (error) {
@@ -193,12 +173,6 @@ export const searchContextWithPages = async (courseId, pdfIds = null, pageStart 
     }
 };
 
-/**
- * Generate Guided Notes with Citations
- * @param {Array} chunks - Result from searchContextWithPages
- * @param {string} format - 'outline' | 'cornell' | 'fill-in' | 'eli5'
- * @returns {Object} - { title, sections: [{ heading, content, citations }] }
- */
 export const generateGuidedNotes = async (chunks, courseName, format = 'outline') => {
     if (!chunks || chunks.length === 0) {
         throw new Error('No content found for selected PDFs/pages. Upload materials first.');
@@ -216,17 +190,14 @@ export const generateGuidedNotes = async (chunks, courseName, format = 'outline'
     };
 
     const fillInExample = format === 'fill-in' ? `
-
 FILL-IN-THE-BLANK RULES (CRITICAL):
 - Replace EVERY important term, definition, or concept with _____ (5 underscores)
 - Do NOT write complete sentences with all information
 - Students should be able to test themselves by filling in the blanks
 - Example: "The _____ is determined first when factoring." NOT "The GCF is determined first."
-- Minimum 3-5 blanks per section
-` : '';
+- Minimum 3-5 blanks per section` : '';
 
     const cornellExample = format === 'cornell' ? `
-
 CORNELL NOTES RULES (CRITICAL):
 - Each section MUST have "cues", "notes", and "summary" fields
 - "cues" = questions or keywords (3-5 bullet points)
@@ -243,7 +214,7 @@ CORNELL NOTES RULES (CRITICAL):
 ` : '';
 
     const prompt = `You are an expert note-taker. Generate ${format} notes for "${courseName}" based ONLY on the provided excerpts.
-
+    
 CRITICAL CITATION RULES:
 - Every factual statement MUST cite the source using [PDFName p.X] format
 - Citations must reference ONLY the provided sources
@@ -275,7 +246,9 @@ ${contextText.substring(0, 20000)}`;
                 { role: "system", content: "You are a study assistant. Output JSON only with citations." },
                 { role: "user", content: prompt }
             ],
-            { type: "json_object" }
+            { type: "json_object" },
+            'gpt-4o',
+            'generation'
         );
 
         const result = JSON.parse(data.choices[0].message.content);
@@ -286,12 +259,6 @@ ${contextText.substring(0, 20000)}`;
     }
 };
 
-/**
- * Generate Quiz with Citations
- * @param {Array} chunks - Result from searchContextWithPages
- * @param {Object} settings - { numQuestions, difficulty, types }
- * @returns {Object} - { questions: [{ question, options, correctAnswer, explanation, citation }] }
- */
 export const generateQuizWithCitations = async (chunks, courseName, settings = {}) => {
     if (!chunks || chunks.length === 0) {
         throw new Error('No content found. Upload materials first.');
@@ -341,7 +308,9 @@ ${contextText.substring(0, 20000)}`;
                 { role: "system", content: "You are a quiz generator. Output JSON only." },
                 { role: "user", content: prompt }
             ],
-            { type: "json_object" }
+            { type: "json_object" },
+            'gpt-4o',
+            'generation'
         );
 
         return JSON.parse(data.choices[0].message.content);
@@ -351,12 +320,6 @@ ${contextText.substring(0, 20000)}`;
     }
 };
 
-/**
- * Chat with PDF Citations
- * @param {Array} history - Chat history
- * @param {Array} chunks - Result from searchContextWithPages
- * @returns {string} - Response with inline [PDFName p.X] citations
- */
 export const chatWithPDFCitations = async (history, chunks) => {
     if (!chunks || chunks.length === 0) {
         return "No PDF content loaded. Please upload course materials to chat with them.";
@@ -382,7 +345,7 @@ ${contextText.substring(0, 20000)}`;
         const data = await callAI([
             { role: "system", content: systemPrompt },
             ...history
-        ]);
+        ], null, 'gpt-4o', 'chat');
 
         return data.choices[0].message.content;
     } catch (error) {
