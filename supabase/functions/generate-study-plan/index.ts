@@ -39,19 +39,6 @@ serve(async (req) => {
             throw new Error("Upgrade to Premium to use AI features!");
         }
 
-        // Usage Check (Cost = 10)
-        const { data: stats } = await supabaseClient.from('user_stats').select('ai_usage_count').eq('user_id', user.id).single()
-        const usage = stats?.ai_usage_count || 0
-        const limit = 500
-        const COST = 10
-
-        if (usage + COST > limit) {
-            throw new Error(`AI Limit Reached (${usage}/${limit}). Please upgrade.`);
-        }
-
-        // Increment Usage
-        await supabaseClient.from('user_stats').update({ ai_usage_count: usage + COST }).eq('user_id', user.id)
-
         // 2. Parse Input
         const { assignments, hoursPerDay } = await req.json()
         console.log(`Generating plan for user ${user.id} with ${assignments?.length} assignments, ${hoursPerDay} hours/day`)

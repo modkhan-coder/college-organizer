@@ -63,13 +63,13 @@ export const AppProvider = ({ children }) => {
       courses: 9999,
       assignments: 9999,
       tasks: 9999,
-      ai: 500
+      ai: 50
     },
     premium: {
       courses: 9999,
       assignments: 9999,
       tasks: 9999,
-      ai: 500
+      ai: 50
     }
   };
 

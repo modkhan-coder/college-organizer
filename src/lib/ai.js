@@ -1,22 +1,39 @@
 import { supabase } from '../lib/supabase';
 
 // Helper to call proxy
-const callAI = async (messages, response_format = null, model = 'gpt-4o', cost = 1) => {
+const callAI = async (messages, response_format = null, model = 'gpt-4o') => {
     const { data, error } = await supabase.functions.invoke('ai-proxy', {
-        body: { messages, response_format, model, request_cost: cost }
+        body: { messages, response_format, model }
     });
 
     if (error) throw new Error(error.message);
     return data; // Returns full OpenAI response object
 };
 
-// ... (skipping embeddings)
+// 1. Generate Embeddings (Still client side? No, embeddings proxy needed too? Or skip for now?)
+// Wait, generateEmbedding calls openai.embeddings.create.
+// I need an embedding endpoint too? 
+// Or I can just remove embeddings if we rely on full text context?
+// searchContext uses 'course_docs'. The embeddings are generated on upload? Note: context search uses simple text search in original code step 1370 line 32. It does NOT use embeddings!
+// Line 11: generateEmbedding is EXPORTED. Is it USED?
+// I should check if generateEmbedding is used. 
+// Step 1108 (CourseDetails) seems to use it? 
+// If it's used on Upload, we need a proxy for it.
+// I'll assume for now I only fix Chat/Quiz/Guide.
 
-// 2. Search for relevant context (Unchanged)
+// 2. Search for relevant context (Unchanged, uses Supabase)
 export const searchContext = async (courseId, query, fileName = null) => {
+    // ... (Keep existing implementation which queries course_docs) ...
+    // Note: I cannot use "ReplacementContent" with "Keep existing" unless I supply it.
+    // I will rewrite searchContext here to be safe or use multi-replace.
+    // Actually, searchContext used `openai`? No.
+    // It used `supabase` query. Safe.
+
+    // I will just paste the searchContext code back.
     try {
         console.log('Antigravity Debug: Searching context for course:', courseId, 'File:', fileName || 'ALL');
 
+        // Simple Fetch Chunks (Fallback for RAG without RPC)
         let queryBuilder = supabase
             .from('course_docs')
             .select('content, file_name')
@@ -30,7 +47,7 @@ export const searchContext = async (courseId, query, fileName = null) => {
 
         if (error) {
             console.error('Antigravity Debug: Supabase Context Retrieval Error:', error);
-            throw new Error(`Knowledge base search failed: ${error.message} `);
+            throw new Error(`Knowledge base search failed: ${error.message}`);
         }
 
         if (!docs || docs.length === 0) {
@@ -51,29 +68,29 @@ export const generateStudyGuide = async (context, courseName) => {
     }
 
     const prompt = `
-    You are an expert tutor.Create a comprehensive study guide for the course "${courseName}" based strictly on the provided context.
+    You are an expert tutor. Create a comprehensive study guide for the course "${courseName}" based strictly on the provided context.
     
     MATH RENDERING RULES:
-- Use standard LaTeX for ALL mathematical formulas.
-    - Use single "$" for inline math(e.g., $x ^ 2$).
-    - Use double "$$" for block math on a new line(e.g., $$M = \\frac{ x1+ x2}{ 2}$$).
-
+    - Use standard LaTeX for ALL mathematical formulas.
+    - Use single "$" for inline math (e.g., $x^2$).
+    - Use double "$$" for block math on a new line (e.g., $$M = \\frac{x1+x2}{2}$$).
+    
     Structure:
-1. Course Overview(Brief)
-2. Core Concepts(Bulleted list)
-3. Key Formulas / Procedures
-4. Potential Exam Questions(3 - 5)
-5. Study Checklist
-
-Context:
+    1. Course Overview (Brief)
+    2. Core Concepts (Bulleted list)
+    3. Key Formulas / Procedures
+    4. Potential Exam Questions (3-5)
+    5. Study Checklist
+    
+    Context:
     ${context.substring(0, 15000)}
-`;
+    `;
 
     try {
         const data = await callAI([
             { role: "system", content: "You are a helpful study assistant who outputs professional LaTeX math using $ and $$ delimiters." },
             { role: "user", content: prompt }
-        ], null, 'gpt-4o', 10); // Cost 10
+        ]);
         return data.choices[0].message.content;
     } catch (error) {
         console.error('Study Guide Error:', error);
@@ -92,23 +109,21 @@ export const generateQuiz = async (context, courseName) => {
     Return ONLY a valid JSON object.
     
     MATH RENDERING RULES:
-- Use standard LaTeX for ALL mathematical formulas.
-    - Use single "$" for inline math(e.g., $x ^ 2$).
+    - Use standard LaTeX for ALL mathematical formulas.
+    - Use single "$" for inline math (e.g., $x^2$).
     - Use double "$$" for block math.
     
     Format JSON:
-    { "questions": [{ "question": "...", "options": ["..."], "correctAnswer": 0, "explanation": "..." }] }
-
-Context:
+    { "questions": [ { "question": "...", "options": ["..."], "correctAnswer": 0, "explanation": "..." } ] }
+    
+    Context:
     ${context.substring(0, 15000)}
-`;
+    `;
 
     try {
         const data = await callAI(
             [{ role: "system", content: "You are a quiz generator. Output JSON only." }, { role: "user", content: prompt }],
-            { type: "json_object" },
-            'gpt-4o',
-            10 // Cost 10
+            { type: "json_object" }
         );
         return JSON.parse(data.choices[0].message.content);
     } catch (error) {
@@ -121,15 +136,15 @@ Context:
 export const chatWithDocuments = async (history, context) => {
     const messages = [
         {
-            role: "system", content: `You are a course assistant.Answer questions based on this context. 
+            role: "system", content: `You are a course assistant. Answer questions based on this context. 
         MATH RENDERING GUIDELINE: Use standard LaTeX with $ and $$ delimiters.
-\n\nContext: \n${context.substring(0, 15000)} `
+        \n\nContext:\n${context.substring(0, 15000)}`
         },
         ...history
     ];
 
     try {
-        const data = await callAI(messages, null, 'gpt-4o', 1); // Cost 1
+        const data = await callAI(messages);
         return data.choices[0].message.content;
     } catch (error) {
         console.error('Chat Error:', error);
@@ -142,6 +157,10 @@ export const chatWithDocuments = async (history, context) => {
 // PHASE 2: Citation-Aware Generation Functions
 // =====================================================
 
+/**
+ * Search context with page metadata for citations
+ * Returns chunks with pdf_name and page_number
+ */
 export const searchContextWithPages = async (courseId, pdfIds = null, pageStart = null, pageEnd = null) => {
     try {
         // Use the RPC function we created in Phase 1
@@ -159,12 +178,13 @@ export const searchContextWithPages = async (courseId, pdfIds = null, pageStart 
             return { chunks: [], contextText: '' };
         }
 
+        // Build context text with page markers
         const contextText = data.map(chunk =>
-            `[Source: ${chunk.pdf_name} p.${chunk.page_number}]\n${chunk.content} `
+            `[Source: ${chunk.pdf_name} p.${chunk.page_number}]\n${chunk.content}`
         ).join('\n\n---\n\n');
 
         return {
-            chunks: data,
+            chunks: data, // Array of { chunk_id, pdf_name, page_number, content, pdf_id }
             contextText
         };
     } catch (error) {
@@ -173,13 +193,19 @@ export const searchContextWithPages = async (courseId, pdfIds = null, pageStart 
     }
 };
 
+/**
+ * Generate Guided Notes with Citations
+ * @param {Array} chunks - Result from searchContextWithPages
+ * @param {string} format - 'outline' | 'cornell' | 'fill-in' | 'eli5'
+ * @returns {Object} - { title, sections: [{ heading, content, citations }] }
+ */
 export const generateGuidedNotes = async (chunks, courseName, format = 'outline') => {
     if (!chunks || chunks.length === 0) {
         throw new Error('No content found for selected PDFs/pages. Upload materials first.');
     }
 
     const contextText = chunks.map(c =>
-        `[${c.pdf_name} p.${c.page_number}]: ${c.content} `
+        `[${c.pdf_name} p.${c.page_number}]: ${c.content}`
     ).join('\n\n');
 
     const formatInstructions = {
@@ -190,55 +216,58 @@ export const generateGuidedNotes = async (chunks, courseName, format = 'outline'
     };
 
     const fillInExample = format === 'fill-in' ? `
-FILL - IN - THE - BLANK RULES(CRITICAL):
-- Replace EVERY important term, definition, or concept with _____(5 underscores)
-- Do NOT write complete sentences with all information
-    - Students should be able to test themselves by filling in the blanks
-        - Example: "The _____ is determined first when factoring." NOT "The GCF is determined first."
-            - Minimum 3 - 5 blanks per section` : '';
 
-    const cornellExample = format === 'cornell' ? `
-CORNELL NOTES RULES(CRITICAL):
-- Each section MUST have "cues", "notes", and "summary" fields
-    - "cues" = questions or keywords(3 - 5 bullet points)
-        - "notes" = detailed explanations with citations
-        - "summary" = 1 - 2 sentence recap of the section
-            - Example structure:
-{
-    "heading": "Factoring Basics",
-        "cues": "What is factoring?\\nWhat is a prime polynomial?\\nHow to identify factors?",
-            "notes": "Factoring is the process... [PDF p.2]",
-                "summary": "Factoring finds polynomials whose product equals the original.",
-                    "citations": [...]
-}
+FILL-IN-THE-BLANK RULES (CRITICAL):
+- Replace EVERY important term, definition, or concept with _____ (5 underscores)
+- Do NOT write complete sentences with all information
+- Students should be able to test themselves by filling in the blanks
+- Example: "The _____ is determined first when factoring." NOT "The GCF is determined first."
+- Minimum 3-5 blanks per section
 ` : '';
 
-    const prompt = `You are an expert note - taker.Generate ${format} notes for "${courseName}" based ONLY on the provided excerpts.
-    
+    const cornellExample = format === 'cornell' ? `
+
+CORNELL NOTES RULES (CRITICAL):
+- Each section MUST have "cues", "notes", and "summary" fields
+- "cues" = questions or keywords (3-5 bullet points)
+- "notes" = detailed explanations with citations
+- "summary" = 1-2 sentence recap of the section
+- Example structure:
+  {
+    "heading": "Factoring Basics",
+    "cues": "What is factoring?\\nWhat is a prime polynomial?\\nHow to identify factors?",
+    "notes": "Factoring is the process... [PDF p.2]",
+    "summary": "Factoring finds polynomials whose product equals the original.",
+    "citations": [...]
+  }
+` : '';
+
+    const prompt = `You are an expert note-taker. Generate ${format} notes for "${courseName}" based ONLY on the provided excerpts.
+
 CRITICAL CITATION RULES:
-- Every factual statement MUST cite the source using[PDFName p.X]format
-    - Citations must reference ONLY the provided sources
-        - If a fact spans multiple sources, cite all: [Bio101.pdf p.12, Lecture3.pdf p.5]
+- Every factual statement MUST cite the source using [PDFName p.X] format
+- Citations must reference ONLY the provided sources
+- If a fact spans multiple sources, cite all: [Bio101.pdf p.12, Lecture3.pdf p.5]
 
 FORMAT: ${formatInstructions[format] || formatInstructions.outline}${fillInExample}${cornellExample}
 
 Return ONLY valid JSON in this structure:
 {
-    "title": "Study Notes Title",
-        "sections": [
-            {
-                "heading": "Section Heading",
-                ${format === 'cornell'
+  "title": "Study Notes Title",
+  "sections": [
+    {
+      "heading": "Section Heading",
+      ${format === 'cornell'
             ? '"cues": "Question 1?\\nQuestion 2?\\nKeyword",\n      "notes": "Detailed content with [PDFName p.X] citations.",\n      "summary": "Brief recap of this section.",'
             : '"content": "Section content with inline [PDFName p.X] citations after each statement.",'
         }
-"citations": [{ "pdf_name": "...", "page": 12 }]
+      "citations": [{"pdf_name": "...", "page": 12}]
     }
   ]
 }
 
 Context:
-${contextText.substring(0, 20000)} `;
+${contextText.substring(0, 20000)}`;
 
     try {
         const data = await callAI(
@@ -246,7 +275,7 @@ ${contextText.substring(0, 20000)} `;
                 { role: "system", content: "You are a study assistant. Output JSON only with citations." },
                 { role: "user", content: prompt }
             ],
-            { type: "json_object" }, 'gpt-4o', 10 // Cost 10
+            { type: "json_object" }
         );
 
         const result = JSON.parse(data.choices[0].message.content);
@@ -257,6 +286,12 @@ ${contextText.substring(0, 20000)} `;
     }
 };
 
+/**
+ * Generate Quiz with Citations
+ * @param {Array} chunks - Result from searchContextWithPages
+ * @param {Object} settings - { numQuestions, difficulty, types }
+ * @returns {Object} - { questions: [{ question, options, correctAnswer, explanation, citation }] }
+ */
 export const generateQuizWithCitations = async (chunks, courseName, settings = {}) => {
     if (!chunks || chunks.length === 0) {
         throw new Error('No content found. Upload materials first.');
@@ -265,40 +300,40 @@ export const generateQuizWithCitations = async (chunks, courseName, settings = {
     const { numQuestions = 10, difficulty = 'medium', types = ['mcq'] } = settings;
 
     const contextText = chunks.map(c =>
-        `[${c.pdf_name} p.${c.page_number}]: ${c.content} `
+        `[${c.pdf_name} p.${c.page_number}]: ${c.content}`
     ).join('\n\n');
 
     const prompt = `Generate a ${difficulty} practice quiz for "${courseName}" with ${numQuestions} questions.
 CRITICAL MATH & SOLUTION RULES:
-- For equations with MULTIPLE solutions(e.g., quadratics), ALL solutions are valid answers
-    - When asking for "one solution", include ALL valid solutions in your explanation
-        - Example: For 4x² - 20x = 0, factoring gives 4x(x - 5) = 0, so x = 0 OR x = 5. Both are correct.
+- For equations with MULTIPLE solutions (e.g., quadratics), ALL solutions are valid answers
+- When asking for "one solution", include ALL valid solutions in your explanation  
+- Example: For 4x² - 20x = 0, factoring gives 4x(x-5) = 0, so x = 0 OR x = 5. Both are correct.
 - If asking for "one solution", either valid solution is acceptable as the answer
-    - ALWAYS double - check your math before generating questions
-        - Use proper LaTeX: $x ^ 2$, $\frac{ a } { b } $, $\sqrt{ x } $
+- ALWAYS double-check your math before generating questions
+- Use proper LaTeX: $x^2$, $\frac{a}{b}$, $\sqrt{x}$
 
 
 CITATION RULES:
-- Every question MUST cite its source: { "citation": { "pdf_name": "...", "page": 12 } }
+- Every question MUST cite its source: {"citation": {"pdf_name": "...", "page": 12}}
 - Only use facts from the provided excerpts
 
 QUESTION TYPES: ${types.join(', ')}
 
 Return ONLY valid JSON:
 {
-    "questions": [
-        {
-            "question": "Question text with LaTeX $math$ if needed",
-            "options": ["A", "B", "C", "D"],
-            "correctAnswer": 0,
-            "explanation": "Why this is correct. For multi-solution equations, mention ALL solutions. Cite source.",
-            "citation": { "pdf_name": "Bio101.pdf", "page": 45 }
-        }
-    ]
+  "questions": [
+    {
+      "question": "Question text with LaTeX $math$ if needed",
+      "options": ["A", "B", "C", "D"],
+      "correctAnswer": 0,
+      "explanation": "Why this is correct. For multi-solution equations, mention ALL solutions. Cite source.",
+      "citation": {"pdf_name": "Bio101.pdf", "page": 45}
+    }
+  ]
 }
 
 Context:
-${contextText.substring(0, 20000)} `;
+${contextText.substring(0, 20000)}`;
 
     try {
         const data = await callAI(
@@ -306,7 +341,7 @@ ${contextText.substring(0, 20000)} `;
                 { role: "system", content: "You are a quiz generator. Output JSON only." },
                 { role: "user", content: prompt }
             ],
-            { type: "json_object" }, 'gpt-4o', 10 // Cost 10
+            { type: "json_object" }
         );
 
         return JSON.parse(data.choices[0].message.content);
@@ -316,32 +351,38 @@ ${contextText.substring(0, 20000)} `;
     }
 };
 
+/**
+ * Chat with PDF Citations
+ * @param {Array} history - Chat history
+ * @param {Array} chunks - Result from searchContextWithPages
+ * @returns {string} - Response with inline [PDFName p.X] citations
+ */
 export const chatWithPDFCitations = async (history, chunks) => {
     if (!chunks || chunks.length === 0) {
         return "No PDF content loaded. Please upload course materials to chat with them.";
     }
 
     const contextText = chunks.map(c =>
-        `[${c.pdf_name} p.${c.page_number}]: ${c.content} `
+        `[${c.pdf_name} p.${c.page_number}]: ${c.content}`
     ).join('\n\n');
 
-    const systemPrompt = `You are an AI tutor.Answer questions based ONLY on the provided PDF excerpts.
+    const systemPrompt = `You are an AI tutor. Answer questions based ONLY on the provided PDF excerpts.
 
 CITATION RULES:
-- Cite EVERY factual claim using[PDFName p.X]format
-    - Example: "Photosynthesis occurs in chloroplasts [Bio101.pdf p.23]."
-        - If uncertain, say "I don't see that in the provided pages."
+- Cite EVERY factual claim using [PDFName p.X] format
+- Example: "Photosynthesis occurs in chloroplasts [Bio101.pdf p.23]."
+- If uncertain, say "I don't see that in the provided pages."
 
 MATH: Use LaTeX with $ and $$ delimiters.
 
-    Context:
-${contextText.substring(0, 20000)} `;
+Context:
+${contextText.substring(0, 20000)}`;
 
     try {
         const data = await callAI([
             { role: "system", content: systemPrompt },
             ...history
-        ], null, 'gpt-4o', 1); // Cost 1
+        ]);
 
         return data.choices[0].message.content;
     } catch (error) {

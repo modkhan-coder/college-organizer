@@ -23,7 +23,7 @@ serve(async (req) => {
         }
 
         // Parse Body
-        const { messages, response_format, model, request_cost } = await req.json()
+        const { messages, response_format, model } = await req.json()
 
         // Check Limits
         const { data: profile } = await supabaseClient.from('profiles').select('plan').eq('id', user.id).single()
@@ -32,7 +32,7 @@ serve(async (req) => {
         const plan = profile?.plan || 'free'
         let usage = stats?.ai_usage_count || 0
         const lastResetStr = stats?.ai_last_reset
-        const limit = (plan === 'premium' || plan === 'pro') ? 500 : 0 // Free users get 0
+        const limit = (plan === 'premium' || plan === 'pro') ? 50 : 0 // Free users get 0
 
         // Auto-Reset logic
         const now = new Date()
@@ -50,7 +50,7 @@ serve(async (req) => {
             }
         }
 
-        if (usage + (request_cost || 1) > limit) {
+        if (usage >= limit) {
             return new Response(JSON.stringify({ error: `AI Limit Reached (${usage}/${limit}). Please upgrade or wait for next month.` }), {
                 status: 403,
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -80,8 +80,7 @@ serve(async (req) => {
 
         // Increment Usage (Best effort, ignore error)
         try {
-            const cost = request_cost || 1
-            await supabaseClient.from('user_stats').update({ ai_usage_count: usage + cost }).eq('user_id', user.id)
+            await supabaseClient.from('user_stats').update({ ai_usage_count: usage + 1 }).eq('user_id', user.id)
         } catch (e) {
             console.error("Failed to increment usage", e)
         }
