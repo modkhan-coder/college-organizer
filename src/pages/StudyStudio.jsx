@@ -839,6 +839,7 @@ const StudyStudio = () => {
                                 <input
                                     className="input-field"
                                     type="number"
+                                    min="1"
                                     placeholder="Start"
                                     value={pageStart}
                                     onChange={e => setPageStart(e.target.value)}
@@ -848,6 +849,7 @@ const StudyStudio = () => {
                                 <input
                                     className="input-field"
                                     type="number"
+                                    min="1"
                                     placeholder="End"
                                     value={pageEnd}
                                     onChange={e => setPageEnd(e.target.value)}
