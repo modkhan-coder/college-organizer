@@ -70,7 +70,11 @@ serve(async (req) => {
                 limit: 10
             });
 
-            const activeSub = subscriptions.data.find(s => s.status === 'active' || s.status === 'trialing');
+            const activeSub = subscriptions.data.find(s =>
+                (s.status === 'active' || s.status === 'trialing') &&
+                s.cancel_at_period_end === false
+            );
+
             if (activeSub) {
                 // Map Stripe Product back to our plan names
                 // We'll use metadata from the subscription if available, or name mapping
@@ -80,6 +84,8 @@ serve(async (req) => {
 
                 subscriptionId = activeSub.id;
                 console.log('Found active subscription via fallback:', planToFulfill);
+            } else {
+                console.log('No eligible active subscriptions found (or cancellation is scheduled).');
             }
         }
 

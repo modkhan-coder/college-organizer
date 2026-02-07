@@ -70,14 +70,19 @@ serve(async (req) => {
                 }
                 break
             }
+            case 'customer.subscription.updated':
             case 'customer.subscription.deleted': {
                 const subscription = event.data.object
                 const customerId = subscription.customer
+                const isCancelled = subscription.status === 'canceled' || subscription.cancel_at_period_end === true
 
-                await supabaseAdmin.from('profiles').update({
-                    plan: 'free',
-                    subscription_status: 'canceled'
-                }).eq('stripe_customer_id', customerId)
+                if (isCancelled) {
+                    console.log(`[WEBHOOK] Downgrade detected for customer ${customerId}. Resetting to FREE.`)
+                    await supabaseAdmin.from('profiles').update({
+                        plan: 'free',
+                        subscription_status: 'canceled'
+                    }).eq('stripe_customer_id', customerId)
+                }
                 break
             }
         }
