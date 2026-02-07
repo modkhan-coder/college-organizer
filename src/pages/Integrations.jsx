@@ -303,17 +303,23 @@ const Integrations = () => {
                         </div>
                     ) : (
                         <div className="input-group">
-                            <label className="input-label">API Access Token (Optional)</label>
+                            <label className="input-label">API Access Token</label>
                             <input
                                 className="input-field"
                                 value={token}
                                 onChange={e => setToken(e.target.value)}
-                                placeholder="Leave blank for Simulation Mode"
+                                placeholder="Paste your Canvas/LMS token here..."
                                 type="password"
                             />
-                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                                If you have a Developer/Access Token from your school, paste it here for real data.
-                            </p>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: '1.4' }}>
+                                <strong>How to get this:</strong>
+                                <ol style={{ paddingLeft: '20px', margin: '4px 0' }}>
+                                    <li>Go to your {setupProvider} Account/Profile settings</li>
+                                    <li>Look for "Approved Integrations" or "Access Tokens"</li>
+                                    <li>Click "+ New Access Token" and copy it here</li>
+                                </ol>
+                                <span style={{ opacity: 0.8 }}>(Leave blank only if testing with Mock Data)</span>
+                            </div>
                         </div>
                     )}
 
