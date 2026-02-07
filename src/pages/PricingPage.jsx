@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { Check, X, CreditCard, Star, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const PricingPage = () => {
+const PricingPage = ({ isModal = false, onClose }) => {
     const { user, saveUser, addNotification } = useApp();
     const navigate = useNavigate();
     const [processingPlan, setProcessingPlan] = useState(null);
@@ -14,75 +14,76 @@ const PricingPage = () => {
     // Safety check for user.plan
     const currentPlan = user?.plan || 'free';
 
-    // Auto-Sync Payment Check
-    useEffect(() => {
-        const queryParams = new URLSearchParams(window.location.search);
-        const isSuccess = queryParams.get('success') === 'true';
-        const isDowngrade = queryParams.get('downgrade') === 'true';
+    // Payment verification is now handled globally by PaymentSync
 
-        if (user?.id) {
-            if (isSuccess || isDowngrade) setVerifying(true);
-
-            supabase.functions.invoke('verify-payment', { body: {} })
-                .then(({ data }) => {
-                    if (data?.success) {
-                        // If plan mismatch, update LOCAL state immediately (no reload)
-                        if (data?.plan && data.plan !== user.plan) {
-                            console.log('Plan mismatch, syncing local state to:', data.plan);
-                            saveUser({ ...user, plan: data.plan });
-
-                            if (isSuccess) {
-                                addNotification(`Successfully upgraded to ${data.plan.toUpperCase()}!`, 'success');
-                            }
-                        }
-
-                        // Clean URL if we had params
-                        if (isSuccess || isDowngrade) {
-                            navigate('/pricing', { replace: true });
-                        }
-                    }
-                })
-                .catch(e => console.error('Sync Error:', e))
-                .finally(() => setVerifying(false));
-        }
-    }, [user?.id]);
-
-    const handleUpgrade = async (plan) => {
-        setProcessingPlan(plan);
+    const handleManageBilling = async () => {
+        setProcessingPlan('portal');
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-
-            if (!token) {
-                throw new Error("No active session. Please log out and log in again.");
-            }
-
-            const { data, error } = await supabase.functions.invoke('create-checkout', {
-                body: {
-                    plan,
-                    interval: billingCycle
-                },
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
+            const { data, error } = await supabase.functions.invoke('create-portal-session', {
+                body: { returnPath: window.location.pathname }
             });
 
             if (error) throw error;
-
-            if (data?.error) {
-                throw new Error(data.error);
+            if (data?.url) {
+                window.location.href = data.url;
+            } else {
+                throw new Error('No portal URL received');
             }
+        } catch (error) {
+            console.error('[PORTAL] Failed:', error);
+            addNotification(`Billing management failed: ${error.message || 'Unknown error'}`, 'error');
+            setProcessingPlan(null);
+        }
+    };
+
+    const handleUpgrade = async (plan) => {
+        if (plan === 'free') {
+            await handleManageBilling();
+            return;
+        }
+
+        if (plan === user?.plan) {
+            addNotification(`You are already on the ${plan.toUpperCase()} plan`, 'info');
+            return;
+        }
+
+        setProcessingPlan(plan);
+        try {
+            console.log(`[UPGRADE] Initiating ${plan} (${billingCycle})`);
+            const response = await supabase.functions.invoke('create-checkout', {
+                body: {
+                    plan,
+                    interval: billingCycle,
+                    returnPath: window.location.pathname
+                }
+            });
+
+            const { data, error } = response;
+
+            if (error) {
+                console.error('[UPGRADE] Error:', error);
+                let message = error.message;
+                if (error.context && typeof error.context.json === 'function') {
+                    try {
+                        const errBody = await error.context.json();
+                        if (errBody.error) message = errBody.error;
+                    } catch (e) {
+                        // Ignore parse failure
+                    }
+                }
+                throw new Error(message);
+            }
+
+            if (data?.error) throw new Error(data.error);
 
             if (data?.url) {
                 window.location.href = data.url;
             } else {
-                addNotification('Failed to start checkout session', 'error');
-                setProcessingPlan(null);
+                throw new Error('No checkout URL received');
             }
         } catch (error) {
-            console.error('Checkout error:', error);
-            const errMsg = error?.message || JSON.stringify(error) || 'Unknown error';
-            addNotification(`Checkout failed: ${errMsg}`, 'error');
+            console.error('[UPGRADE] Failed:', error);
+            addNotification(`Checkout failed: ${error.message || 'Unknown error'}`, 'error');
             setProcessingPlan(null);
         }
     };
@@ -104,8 +105,25 @@ const PricingPage = () => {
         </div>
     );
 
-    return (
-        <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '24px 0' }}>
+    const content = (
+        <div style={{ maxWidth: '1000px', margin: '0 auto', padding: isModal ? '0' : '24px 0', position: 'relative' }}>
+            {isModal && (
+                <button
+                    onClick={onClose}
+                    style={{
+                        position: 'absolute',
+                        top: '-20px',
+                        right: '0',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: 'var(--text-secondary)',
+                        padding: '10px'
+                    }}
+                >
+                    <X size={24} />
+                </button>
+            )}
             <div style={{ textAlign: 'center', marginBottom: '40px' }}>
                 <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '16px' }}>Upgrade your College Life</h1>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', marginBottom: '24px' }}>Unlock unlimited courses, assignments, and advanced features.</p>
@@ -255,12 +273,54 @@ const PricingPage = () => {
                     <Feature included={true} text="Custom Themes" />
                 </div>
             </div>
-
             <div style={{ marginTop: '40px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
                 <p>Secure payment processing via Stripe. Cancel anytime.</p>
             </div>
         </div>
     );
+
+    if (isModal) {
+        return (
+            <div
+                style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 2000,
+                    padding: '24px',
+                    backdropFilter: 'blur(4px)'
+                }}
+                onClick={(e) => {
+                    if (e.target === e.currentTarget && onClose) onClose();
+                }}
+            >
+                <div
+                    style={{
+                        background: 'var(--bg-app)',
+                        width: '100%',
+                        maxWidth: '1100px',
+                        maxHeight: '90vh',
+                        overflowY: 'auto',
+                        borderRadius: 'var(--radius-lg)',
+                        padding: '40px 24px',
+                        boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+                        position: 'relative'
+                    }}
+                    onClick={e => e.stopPropagation()}
+                >
+                    {content}
+                </div>
+            </div>
+        );
+    }
+
+    return content;
 };
 
 export default PricingPage;

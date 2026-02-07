@@ -31,6 +31,7 @@ import Onboarding from './pages/Onboarding';
 
 import LandingPage from './pages/LandingPage';
 import RequireAuth from './components/RequireAuth';
+import PaymentSync from './components/PaymentSync';
 
 function App() {
   const { user, loading } = useApp();
@@ -50,11 +51,11 @@ function App() {
   return (
     <TourProvider>
       <div className="app-container">
+        <PaymentSync />
         <Routes>
           {/* Public Routes - NO SIDEBAR/LAYOUT */}
           <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
           <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Auth />} />
-          <Route path="/pricing" element={<PricingPage />} />
           <Route path="/pricing" element={<PricingPage />} />
 
           {/* Protected Routes - WITH SIDEBAR/LAYOUT */}

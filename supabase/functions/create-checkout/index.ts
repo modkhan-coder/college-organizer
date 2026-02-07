@@ -1,175 +1,122 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
-import Stripe from 'https://esm.sh/stripe@12.4.0?target=deno'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import Stripe from 'https://esm.sh/stripe@13.10.0?target=deno'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+console.log("Edge Function V5: create-checkout starting (Compatible Mode)...");
+
 serve(async (req) => {
     if (req.method === 'OPTIONS') {
-        return new Response('ok', { headers: corsHeaders })
+        return new Response('ok', { headers: corsHeaders });
     }
 
     try {
-        const authHeader = req.headers.get('Authorization');
-        if (!authHeader) {
-            throw new Error('Missing Authorization Header');
-        }
+        const authHeader = req.headers.get('Authorization')
+        if (!authHeader) throw new Error('No authorization header')
 
-        const token = authHeader.replace('Bearer ', '');
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+        const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
 
-        const supabaseClient = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-            { global: { headers: { Authorization: authHeader } } }
-        )
+        const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+            global: { headers: { Authorization: authHeader } },
+        })
 
-        // 1. Authenticate User
-        const {
-            data: { user },
-            error: authError
-        } = await supabaseClient.auth.getUser(token)
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        if (authError || !user) throw new Error('Not authenticated')
 
-        if (authError) {
-            console.error("Auth Error:", authError);
-            throw new Error(`Auth Error: ${authError.message}`);
-        }
+        const { plan, interval = 'monthly', returnPath = '/pricing' } = await req.json().catch(() => ({}))
+        if (!plan) throw new Error('No plan provided')
 
-        if (!user) {
-            console.error("No user found");
-            throw new Error('Unauthorized: User is null');
-        }
+        // Initialize Stripe
+        const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') ?? ''
+        if (!stripeKey) throw new Error('Stripe API key missing')
 
-        const { plan, interval } = await req.json() // plan: 'pro' | 'premium', interval: 'monthly' | 'yearly'
-
-        const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') as string, {
-            apiVersion: '2026-01-28.clover' as any,
+        const stripe = new Stripe(stripeKey, {
+            apiVersion: '2023-10-16',
             httpClient: Stripe.createFetchHttpClient(),
         })
 
-        // 2. Get User Profile for Stripe Customer ID
-        const { data: profile } = await supabaseClient
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single()
-
+        // Fetch Profile
+        const { data: profile } = await supabase.from('profiles').select('stripe_customer_id').eq('id', user.id).single()
         let customerId = profile?.stripe_customer_id
 
-        // 3. Create Stripe Customer if not exists
-        if (!customerId) {
-            const customer = await stripe.customers.create({
-                email: user.email,
-                metadata: {
-                    supabase_uuid: user.id
-                }
-            })
-            customerId = customer.id
-
-            // Save to DB
-            const supabaseAdmin = createClient(
-                Deno.env.get('SUPABASE_URL') ?? '',
-                Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-            )
-            await supabaseAdmin.from('profiles').update({ stripe_customer_id: customerId }).eq('id', user.id)
-        }
-
-        // 4. Check & Cancel existing subscription - AGGRESSIVE CLEANUP
-        // We cancel ANY existing subscription to ensure a clean state
-        const subscriptions = await stripe.subscriptions.list({
-            customer: customerId,
-            limit: 10
-        })
-
-        for (const sub of subscriptions.data) {
-            if (sub.status !== 'canceled') {
-                console.log('Cancelling sub:', sub.id);
-                await stripe.subscriptions.del(sub.id);
+        // Check customer validity
+        if (customerId) {
+            try {
+                const customer = await stripe.customers.retrieve(customerId) as any;
+                if (customer.deleted) customerId = null;
+            } catch (e) {
+                customerId = null;
             }
         }
 
-        const frontendUrl = req.headers.get('origin') || 'http://localhost:5173'
-
-        // HANDLE FREE PLAN (Downgrade complete)
-        if (plan === 'free') {
-            // DIRECT DB UPDATE (Bypass Webhook for speed/reliability)
-            const supabaseAdmin = createClient(
-                Deno.env.get('SUPABASE_URL') ?? '',
-                Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-            )
-            await supabaseAdmin.from('profiles').update({ plan: 'free', stripe_subscription_id: null }).eq('id', user.id)
-
-            return new Response(
-                JSON.stringify({ url: `${frontendUrl}/pricing?downgrade=true` }),
-                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            )
+        if (!customerId) {
+            const customer = await stripe.customers.create({
+                email: user.email,
+                metadata: { userId: user.id }
+            })
+            customerId = customer.id
+            const supabaseAdmin = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
+            await supabaseAdmin.from('profiles').update({ stripe_customer_id: customerId }).eq('id', user.id)
         }
 
-        // HANDLE PAID PLANS (Create New Subscription)
-        const currency = 'usd'
+        // Downgrade Safeguard
+        if (plan === 'free') {
+            return new Response(JSON.stringify({
+                error: "Please use the Stripe Billing Portal to manage your subscription.",
+                status: "protected"
+            }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 200
+            })
+        }
+
         const prices = {
             pro: { monthly: 499, yearly: 4999 },
             premium: { monthly: 999, yearly: 9999 }
         }
+        const amount = prices[plan as keyof typeof prices]?.[interval as 'monthly' | 'yearly']
+        if (!amount) throw new Error(`Invalid plan ${plan}`)
 
-        const amount = prices[plan]?.[interval]
-        if (!amount) throw new Error('Invalid plan or interval')
+        // Construct dynamic URLs
+        const origin = req.headers.get('origin') || 'https://www.collegeorganizer.org'
+        const successUrl = new URL(returnPath, origin)
+        successUrl.searchParams.set('success', 'true')
+        successUrl.searchParams.set('session_id', '{CHECKOUT_SESSION_ID}')
 
-        const priceData = {
-            currency,
-            product_data: {
-                name: `${plan.charAt(0).toUpperCase() + plan.slice(1)} Plan (${interval})`,
-                description: `Subscription to College Org ${plan.charAt(0).toUpperCase() + plan.slice(1)}`,
-            },
-            unit_amount: amount,
-            recurring: {
-                interval: interval === 'monthly' ? 'month' : 'year'
-            }
-        }
+        const cancelUrl = new URL(returnPath, origin)
 
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
             mode: 'subscription',
-            phone_number_collection: { enabled: false },
             customer: customerId,
-            line_items: [
-                {
-                    price_data: priceData,
-                    quantity: 1,
+            line_items: [{
+                price_data: {
+                    currency: 'usd',
+                    product_data: { name: `College Org ${plan.toUpperCase()}` },
+                    unit_amount: amount,
+                    recurring: { interval: interval === 'monthly' ? 'month' : 'year' }
                 },
-            ],
-            payment_method_options: {
-                card: {
-                    request_three_d_secure: 'automatic',
-                },
-            }, // We rely on phone_number_collection: { enabled: false } which is already there, but Link might persist.
-            // Actually, to forcefully disable Link in newer API versions if it appears:
-            // payment_method_options: { card: { link: { behavior: 'disabled' } } }
-            // Let's implement that specific fix.
-            payment_method_options: {
-                card: {
-                    request_three_d_secure: 'automatic',
-                }
-            },
-            success_url: `${frontendUrl}/pricing?success=true&session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${frontendUrl}/pricing`,
-            metadata: {
-                plan,
-                userId: user.id
-            }
+                quantity: 1,
+            }],
+            success_url: successUrl.toString(),
+            cancel_url: cancelUrl.toString(),
+            metadata: { plan, userId: user.id }
         })
 
-        return new Response(
-            JSON.stringify({ url: session.url }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-    } catch (error) {
-        console.error(error)
-        return new Response(
-            JSON.stringify({ error: error.message }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-        )
+        return new Response(JSON.stringify({ url: session.url }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+
+    } catch (err: any) {
+        console.error(`Checkout Error: ${err.message}`)
+        return new Response(JSON.stringify({ error: err.message, status: "diagnosed" }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+        })
     }
 })

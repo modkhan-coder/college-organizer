@@ -6,6 +6,7 @@ import { generateICS, generateCSV, downloadFile } from '../utils/exportUtils';
 import { useTheme } from '../context/ThemeContext';
 import { Palette, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import PricingPage from './PricingPage';
 
 const Profile = () => {
     const {
@@ -15,47 +16,9 @@ const Profile = () => {
     const isPro = user?.plan === 'pro' || user?.plan === 'premium';
     const isPremium = user?.plan === 'premium';
     const [searchParams, setSearchParams] = useSearchParams();
+    const [showPricingModal, setShowPricingModal] = useState(false);
 
-    // Payment Verification Logic
-    useEffect(() => {
-        const verifyPayment = async (sessionId) => {
-            try {
-                addNotification('Verifying payment...', 'info');
-                const { data, error } = await supabase.functions.invoke('verify-payment', {
-                    body: { session_id: sessionId }
-                });
-
-                if (error) throw error;
-
-                if (data?.success) {
-                    addNotification(`Success! Plan updated to ${data.plan}`, 'success');
-                    // Force refresh user if needed, though real-time should catch it
-                } else {
-                    console.error('Verify failed:', data);
-                }
-            } catch (e) {
-                console.error('Verification Error:', e);
-                // Fallback: Webhook might enable it later
-                addNotification('Payment received. Updating profile...', 'info');
-            } finally {
-                setSearchParams({}); // Clear params
-            }
-        };
-
-        if (searchParams.get('downgrade')) {
-            addNotification('Plan Downgraded to Free', 'info');
-            setSearchParams({});
-        }
-        if (searchParams.get('updated')) {
-            addNotification('Subscription Updated Successfully', 'success');
-            setSearchParams({});
-        }
-
-        const sessionId = searchParams.get('session_id');
-        if (searchParams.get('success') && sessionId) {
-            verifyPayment(sessionId);
-        }
-    }, [searchParams]);
+    // Payment verification is now handled globally by PaymentSync
 
     // Settings
     const { theme, setTheme, themes } = useTheme();
@@ -247,9 +210,22 @@ const Profile = () => {
                         <div>
                             <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>{displayName || user.name || 'Student'}</h3>
                             <p style={{ color: 'var(--text-secondary)' }}>{user.email || 'No email set'}</p>
-                            <Link to="/pricing" style={{ fontSize: '0.75rem', background: 'var(--accent)', color: 'white', padding: '2px 6px', borderRadius: '4px', textDecoration: 'none', display: 'inline-block', marginTop: '4px' }}>
+                            <button
+                                onClick={() => setShowPricingModal(true)}
+                                style={{
+                                    fontSize: '0.75rem',
+                                    background: 'var(--accent)',
+                                    color: 'white',
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    marginTop: '4px',
+                                    display: 'inline-block'
+                                }}
+                            >
                                 {user.plan?.toUpperCase() || 'FREE'} PLAN &rarr;
-                            </Link>
+                            </button>
                         </div>
                     </div>
 
@@ -435,6 +411,12 @@ const Profile = () => {
                     </Link>
                 </div>
             </div>
+            {showPricingModal && (
+                <PricingPage
+                    isModal={true}
+                    onClose={() => setShowPricingModal(false)}
+                />
+            )}
         </div>
     );
 };

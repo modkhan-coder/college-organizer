@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
-import Stripe from 'https://esm.sh/stripe@12.4.0?target=deno'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import Stripe from 'https://esm.sh/stripe@13.10.0?target=deno'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -14,119 +14,96 @@ serve(async (req) => {
 
     try {
         const authHeader = req.headers.get('Authorization');
-        if (!authHeader) {
-            throw new Error('Missing Authorization Header');
-        }
+        if (!authHeader) throw new Error('Missing Authorization Header');
 
         const token = authHeader.replace('Bearer ', '');
-
         const supabaseClient = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
             Deno.env.get('SUPABASE_ANON_KEY') ?? '',
             { global: { headers: { Authorization: authHeader } } }
         )
 
-        // 1. Authenticate User
-        const {
-            data: { user },
-            error: authError
-        } = await supabaseClient.auth.getUser(token)
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
+        if (authError || !user) throw new Error('Unauthorized');
 
-        if (authError || !user) {
-            throw new Error('Unauthorized');
-        }
+        const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')
+        if (!stripeKey) throw new Error('STRIPE_SECRET_KEY is missing');
 
-        const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') as string, {
-            apiVersion: '2022-11-15',
+        const stripe = new Stripe(stripeKey, {
+            apiVersion: '2023-10-16',
             httpClient: Stripe.createFetchHttpClient(),
         })
 
-        // 2. Retrieve Session (Specific ID or Latest)
-        let session;
+        // Get logic from body
         const { session_id } = await req.json().catch(() => ({}))
-
-        // Get Customer ID from Profile
         const { data: profile } = await supabaseClient
             .from('profiles')
-            .select('stripe_customer_id')
+            .select('stripe_customer_id, plan')
             .eq('id', user.id)
             .single()
-        const customerId = profile?.stripe_customer_id
 
+        let planToFulfill = null;
+        let subscriptionId = null;
+        let stripeCustomerId = profile?.stripe_customer_id;
+
+        // 1. Try Session ID first
         if (session_id) {
-            session = await stripe.checkout.sessions.retrieve(session_id);
-        } else if (customerId) {
-            // Auto-scan: Get latest successful checkout for subscription
-            const sessions = await stripe.checkout.sessions.list({
-                customer: customerId,
-                limit: 1,
-                status: 'complete'
-            })
-            // Filter only valid subscription ones if needed? 
-            // Usually the latest completed session is the one that matters.
-            session = sessions.data[0]
-        }
-
-        if (!session) throw new Error('No payment session found');
-
-        // Check if Paid
-        if (session.payment_status !== 'paid' && session.status !== 'complete') {
-            throw new Error('Payment not completed');
-        }
-
-        // Verify Subscription Status
-        if (session.subscription) {
-            const sub = await stripe.subscriptions.retrieve(session.subscription);
-            if (sub.status !== 'active' && sub.status !== 'trialing') {
-                throw new Error('Subscription not active');
+            try {
+                const session = await stripe.checkout.sessions.retrieve(session_id);
+                if (session.payment_status === 'paid' && session.metadata?.plan) {
+                    planToFulfill = session.metadata.plan;
+                    subscriptionId = session.subscription as string;
+                    stripeCustomerId = session.customer as string;
+                }
+            } catch (e) {
+                console.error('Session retrieval failed:', e.message);
             }
         }
 
-        // 3. Get Plan from Metadata
-        let plan = session.metadata?.plan;
-        // Logic to infer from amount if metadata is missing (backup)
-        if (!plan && session.amount_total) {
-            if (session.amount_total === 499 || session.amount_total === 4999) plan = 'pro';
-            if (session.amount_total === 999 || session.amount_total === 9999) plan = 'premium';
+        // 2. FALLBACK: If no plan yet, search active subscriptions for this customer
+        if (!planToFulfill && stripeCustomerId) {
+            console.log('Searching for active subscriptions for customer:', stripeCustomerId);
+            const subscriptions = await stripe.subscriptions.list({
+                customer: stripeCustomerId,
+                status: 'active',
+                expand: ['data.plan.product'],
+                limit: 10
+            });
+
+            const activeSub = subscriptions.data.find(s => s.status === 'active' || s.status === 'trialing');
+            if (activeSub) {
+                // Map Stripe Product back to our plan names
+                // We'll use metadata from the subscription if available, or name mapping
+                const prodName = (activeSub as any).plan?.product?.name?.toLowerCase() || '';
+                if (prodName.includes('premium')) planToFulfill = 'premium';
+                else if (prodName.includes('pro')) planToFulfill = 'pro';
+
+                subscriptionId = activeSub.id;
+                console.log('Found active subscription via fallback:', planToFulfill);
+            }
         }
-        if (!plan) throw new Error('No plan metadata found');
 
-        // 4. Update Profile (Bypassing Webhook)
-        const supabaseAdmin = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        )
+        if (planToFulfill) {
+            const supabaseAdmin = createClient(
+                Deno.env.get('SUPABASE_URL') ?? '',
+                Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+            )
 
-        // Security Check: Verify the session belongs to this user
-        if (session.metadata?.userId && session.metadata?.userId !== user.id) {
-            throw new Error('Session user mismatch');
+            await supabaseAdmin.from('profiles').update({
+                plan: planToFulfill,
+                subscription_status: 'active',
+                stripe_customer_id: stripeCustomerId,
+                stripe_subscription_id: subscriptionId
+            }).eq('id', user.id)
+
+            return new Response(JSON.stringify({ success: true, plan: planToFulfill }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
-        const { error: updateError } = await supabaseAdmin
-            .from('profiles')
-            .update({ plan: plan, stripe_subscription_id: session.subscription })
-            .eq('id', user.id)
-
-        if (updateError) throw updateError;
-
-        // DEBUG SUBS
-        const subs = await stripe.subscriptions.list({ customer: customerId, limit: 10 });
-
-        return new Response(
-            JSON.stringify({
-                success: true,
-                plan,
-                debug_customer: customerId,
-                debug_sub_count: subs.data.length,
-            }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        return new Response(JSON.stringify({ success: true, plan: profile?.plan || 'free' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
     } catch (error) {
-        console.error(error)
-        return new Response(
-            JSON.stringify({ error: error.message }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-        )
+        console.error('[VERIFY ERROR]', error.message)
+        return new Response(JSON.stringify({ error: error.message }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
     }
 })
+
