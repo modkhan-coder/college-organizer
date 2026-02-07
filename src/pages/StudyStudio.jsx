@@ -238,32 +238,18 @@ const StudyStudio = () => {
 
     const handleSelectPDF = async (pdf) => {
         setSelectedPDF(pdf);
+
+        // Load persisted content for this PDF FIRST
+        // This will either load saved data or clear if none exists
         loadPersistedContent(pdf.id);
 
-        try {
-            // Use Edge Function Proxy to bypass CORS on custom domains
-            const { data, error } = await supabase.functions.invoke('download-pdf', {
-                body: { filePath: pdf.file_path },
-                responseType: 'blob'
-            });
+        const { data } = await supabase.storage
+            .from('course_materials')
+            .download(pdf.file_path);
 
-            if (error) throw error;
-
-            if (data) {
-                const url = URL.createObjectURL(data);
-                setCurrentFileUrl(url);
-            }
-        } catch (error) {
-            console.error('Proxy download error, falling back to storage:', error);
-            // Fallback to direct storage (works on localhost/preview)
-            const { data } = await supabase.storage
-                .from('course_materials')
-                .download(pdf.file_path);
-
-            if (data) {
-                const url = URL.createObjectURL(data);
-                setCurrentFileUrl(url);
-            }
+        if (data) {
+            const url = URL.createObjectURL(data);
+            setCurrentFileUrl(url);
         }
     };
 
@@ -853,19 +839,19 @@ const StudyStudio = () => {
                                 <input
                                     className="input-field"
                                     type="number"
-                                    placeholder="#"
+                                    placeholder="Start"
                                     value={pageStart}
                                     onChange={e => setPageStart(e.target.value)}
-                                    style={{ width: '40px', padding: '4px', fontSize: '0.85rem' }}
+                                    style={{ width: '56px', padding: '4px', fontSize: '0.85rem' }}
                                 />
                                 <span style={{ color: 'var(--text-secondary)' }}>–</span>
                                 <input
                                     className="input-field"
                                     type="number"
-                                    placeholder="#"
+                                    placeholder="End"
                                     value={pageEnd}
                                     onChange={e => setPageEnd(e.target.value)}
-                                    style={{ width: '40px', padding: '4px', fontSize: '0.85rem' }}
+                                    style={{ width: '56px', padding: '4px', fontSize: '0.85rem' }}
                                 />
                             </div>
                         </div>
