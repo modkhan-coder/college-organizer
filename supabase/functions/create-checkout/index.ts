@@ -62,6 +62,32 @@ serve(async (req) => {
             customerId = customer.id
             const supabaseAdmin = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
             await supabaseAdmin.from('profiles').update({ stripe_customer_id: customerId }).eq('id', user.id)
+        } else {
+            // DUPLICATE GUARDRAIL: Check if customer already has active subscriptions
+            const activeSubs = await stripe.subscriptions.list({
+                customer: customerId,
+                status: 'active',
+                limit: 1
+            });
+
+            const trialingSubs = await stripe.subscriptions.list({
+                customer: customerId,
+                status: 'trialing',
+                limit: 1
+            });
+
+            if (activeSubs.data.length > 0 || trialingSubs.data.length > 0) {
+                console.log(`[CHECKOUT] Active sub found for ${user.id}, redirecting to Portal to prevent duplicate.`);
+                const origin = req.headers.get('origin') || 'https://www.collegeorganizer.org';
+                const portalSession = await stripe.billingPortal.sessions.create({
+                    customer: customerId,
+                    return_url: new URL(returnPath, origin).toString(),
+                });
+
+                return new Response(JSON.stringify({ url: portalSession.url, status: "duplicate_rescue" }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                });
+            }
         }
 
         // Downgrade Safeguard: Rescue with Portal Session
