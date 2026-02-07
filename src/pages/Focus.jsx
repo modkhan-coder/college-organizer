@@ -93,20 +93,32 @@ const Focus = () => {
     };
 
     const handleCustomTimeChange = (e) => {
-        const val = parseInt(e.target.value) || 0;
-        const safeVal = Math.min(Math.max(val, 1), 180);
+        const valStr = e.target.value;
+        if (valStr === '') {
+            setTimerLeft(0);
+            setTimerDuration(0);
+            return;
+        }
+        const val = parseInt(valStr) || 0;
+        // Allow typing 0 or empty, but clamp when blurring or submitting? 
+        // Actually, for immediate feedback, we can just set it. 
+        // But if we clamp immediately (Math.max(val, 1)), we can't type "10" if we delete "1".
+        // Let's cap at 180 but allow 0/empty effectively during typing
+
+        const safeVal = Math.min(val, 180);
         setTimerLeft(safeVal * 60);
         setTimerDuration(safeVal * 60);
     };
 
-    const formatTime = (seconds) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    };
-
-    const progress = 1 - (timerLeft / timerDuration);
+    // Calculate progress for the circle
+    const progress = timerDuration > 0 ? (timerLeft / timerDuration) : 0;
     const CurrentIcon = MODES[timerMode].icon;
+
+    const formatTime = (seconds) => {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    };
 
     return (
         <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center', padding: '24px 0' }}>
@@ -163,13 +175,13 @@ const Focus = () => {
                 }}>
                     <CurrentIcon size={48} color={MODES[timerMode].color} style={{ marginBottom: '16px', opacity: 0.8 }} />
                     <div style={{ fontSize: '4rem', fontWeight: 'bold', fontVariantNumeric: 'tabular-nums', letterSpacing: '-2px' }}>
-                        {!timerActive && timerLeft === timerDuration ? (
+                        {!timerActive && (timerLeft === timerDuration || timerDuration === 0) ? (
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                                 <input
                                     type="number"
-                                    min="1"
+                                    min="0"
                                     max="180"
-                                    value={Math.floor(timerLeft / 60)}
+                                    value={timerDuration === 0 ? '' : Math.floor(timerLeft / 60)}
                                     onChange={handleCustomTimeChange}
                                     style={{
                                         fontSize: '4rem',
