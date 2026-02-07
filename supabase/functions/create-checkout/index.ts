@@ -64,15 +64,18 @@ serve(async (req) => {
             await supabaseAdmin.from('profiles').update({ stripe_customer_id: customerId }).eq('id', user.id)
         }
 
-        // Downgrade Safeguard
+        // Downgrade Safeguard: Rescue with Portal Session
         if (plan === 'free') {
-            return new Response(JSON.stringify({
-                error: "Please use the Stripe Billing Portal to manage your subscription.",
-                status: "protected"
-            }), {
+            console.log(`[CHECKOUT] Downgrade requested for ${user.id}, redirecting to Portal...`);
+            const origin = req.headers.get('origin') || 'https://www.collegeorganizer.org';
+            const portalSession = await stripe.billingPortal.sessions.create({
+                customer: customerId,
+                return_url: new URL(returnPath, origin).toString(),
+            });
+
+            return new Response(JSON.stringify({ url: portalSession.url }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                status: 200
-            })
+            });
         }
 
         const prices = {

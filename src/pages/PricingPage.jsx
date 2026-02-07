@@ -126,7 +126,7 @@ const PricingPage = ({ isModal = false, onClose }) => {
             )}
             <div style={{ textAlign: 'center', marginBottom: '40px' }}>
                 <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '16px' }}>Upgrade your College Life</h1>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', marginBottom: '24px' }}>Unlock unlimited courses, assignments, and advanced features.</p>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', marginBottom: '24px' }}>Unlock unlimited courses, assignments, and advanced features. (v1.1.0-portal)</p>
 
                 {/* Billing Toggle */}
                 <div style={{ display: 'inline-flex', background: 'var(--bg-surface)', padding: '4px', borderRadius: '30px', border: '1px solid var(--border)' }}>
