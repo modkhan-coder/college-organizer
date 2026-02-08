@@ -305,7 +305,7 @@ const StudyStudio = () => {
                 const batch = docRecords.slice(i, i + BATCH_SIZE);
                 const { error: insertError } = await supabase
                     .from('course_docs')
-                    .upsert(batch, { onConflict: 'user_id,course_id,pdf_id,page_number' });
+                    .upsert(batch, { onConflict: 'user_id,course_id,pdf_id,page_number,char_start' });
 
                 if (insertError) {
                     console.error(`[PDF Upload] Batch upsert error at index ${i}:`, insertError);
