@@ -66,11 +66,15 @@ serve(async (req) => {
             status: 200,
         })
 
-    } catch (error) {
-        console.error('[PORTAL] Error:', error.message)
-        return new Response(JSON.stringify({ error: error.message }), {
+    } catch (error: any) {
+        console.error('[PORTAL] Error:', error.message, error.stack)
+        // Return 200 with error in body so frontend can show actual error
+        return new Response(JSON.stringify({
+            error: error.message,
+            details: error.stack || 'No stack trace'
+        }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400,
+            status: 200,
         })
     }
 })

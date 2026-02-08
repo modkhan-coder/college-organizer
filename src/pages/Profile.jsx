@@ -87,6 +87,12 @@ const Profile = () => {
             });
 
             if (error) throw error;
+
+            // Check for error in response body (from Edge Function)
+            if (data?.error) {
+                throw new Error(data.error);
+            }
+
             if (data?.url) {
                 window.location.href = data.url;
             } else {
