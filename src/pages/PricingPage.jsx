@@ -43,11 +43,7 @@ const PricingPage = ({ isModal = false, onClose }) => {
     };
 
     const handleUpgrade = async (plan) => {
-        if (plan === 'free') {
-            await handleManageBilling();
-            return;
-        }
-
+        // For downgrade to free, we use create-checkout which now handles cancellation
         if (plan === user?.plan) {
             addNotification(`You are already on the ${plan.toUpperCase()} plan`, 'info');
             return;
