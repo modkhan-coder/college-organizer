@@ -69,13 +69,14 @@ serve(async (req) => {
             const activeSubs = await stripe.subscriptions.list({
                 customer: customerId,
                 status: 'active',
-                expand: ['data.plan.product'],
+                expand: ['data.items.data.price.product'],
                 limit: 5
             });
 
             const trialingSubs = await stripe.subscriptions.list({
                 customer: customerId,
                 status: 'trialing',
+                expand: ['data.items.data.price.product'],
                 limit: 1
             });
 
@@ -83,11 +84,18 @@ serve(async (req) => {
             const existingSub = activeSubs.data[0] || trialingSubs.data[0];
 
             if (existingSub && !existingSub.cancel_at_period_end) {
-                // Determine what plan they currently have
-                const currentProdName = (existingSub as any).plan?.product?.name?.toLowerCase() || '';
+                // Determine what plan they currently have - access via items.data[0].price.product.name
+                const subItem = existingSub.items?.data?.[0];
+                const product = subItem?.price?.product;
+                const currentProdName = (typeof product === 'object' && product !== null ? (product as any).name : '')?.toLowerCase() || '';
+
+                console.log(`[CHECKOUT] Subscription ${existingSub.id} product name: "${currentProdName}"`);
+
                 let currentPlan = 'unknown';
                 if (currentProdName.includes('premium')) currentPlan = 'premium';
                 else if (currentProdName.includes('pro')) currentPlan = 'pro';
+
+                console.log(`[CHECKOUT] Detected currentPlan: ${currentPlan}, requestedPlan: ${plan}`);
 
                 // Plan hierarchy: premium (3) > pro (2) > free (1)
                 const planRank: Record<string, number> = { premium: 3, pro: 2, free: 1, unknown: 0 };
