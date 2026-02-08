@@ -124,18 +124,17 @@ serve(async (req) => {
 
             return new Response(JSON.stringify({ success: true, plan: planToFulfill, status: subStatus }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         } else {
-            // No active plan found - Ensure profile is reset to free
-            if (profile?.plan !== 'free') {
-                const supabaseAdmin = createClient(
-                    Deno.env.get('SUPABASE_URL') ?? '',
-                    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-                )
-                await supabaseAdmin.from('profiles').update({
-                    plan: 'free',
-                    subscription_status: 'canceled'
-                }).eq('id', user.id)
-            }
-            return new Response(JSON.stringify({ success: true, plan: 'free' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            // No active subscription found via Stripe - DO NOT reset to free automatically!
+            // The user might:
+            // 1. Have abandoned a checkout and should keep their current plan
+            // 2. Have a plan that's scheduled to cancel but still valid
+            // Just return the current plan from the database without modifying it
+            console.log(`[VERIFY] No active Stripe subscription found. Returning current DB plan: ${profile?.plan || 'free'}`);
+            return new Response(JSON.stringify({
+                success: true,
+                plan: profile?.plan || 'free',
+                source: 'database_fallback'
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
     } catch (error: any) {
