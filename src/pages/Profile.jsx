@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Link, useSearchParams } from 'react-router-dom';
-import { User, Save, LogOut, Globe } from 'lucide-react';
+import { User, Save, LogOut, Globe, CreditCard } from 'lucide-react';
 import { generateICS, generateCSV, downloadFile } from '../utils/exportUtils';
 import { useTheme } from '../context/ThemeContext';
 import { Palette, Lock } from 'lucide-react';
@@ -17,6 +17,7 @@ const Profile = () => {
     const isPremium = user?.plan === 'premium';
     const [searchParams, setSearchParams] = useSearchParams();
     const [showPricingModal, setShowPricingModal] = useState(false);
+    const [processingBilling, setProcessingBilling] = useState(false);
 
     // Payment verification is now handled globally by PaymentSync
 
@@ -77,6 +78,26 @@ const Profile = () => {
             // State update handled by onAuthStateChange in AppContext
         }
     }
+
+    const handleManageBilling = async () => {
+        setProcessingBilling(true);
+        try {
+            const { data, error } = await supabase.functions.invoke('create-portal-session', {
+                body: { returnPath: '/profile' }
+            });
+
+            if (error) throw error;
+            if (data?.url) {
+                window.location.href = data.url;
+            } else {
+                throw new Error('No portal URL received');
+            }
+        } catch (error) {
+            console.error('[BILLING] Failed:', error);
+            addNotification(`Failed to open billing portal: ${error.message || 'Unknown error'}`, 'error');
+            setProcessingBilling(false);
+        }
+    };
 
     // --- Login View (No User) ---
     if (!user) {
@@ -226,6 +247,30 @@ const Profile = () => {
                             >
                                 {user.plan?.toUpperCase() || 'FREE'} {user?.subscription_status === 'canceling' ? '(CANCELLING)' : 'PLAN'} &rarr;
                             </button>
+                            {/* Manage Billing Button - only for paid users */}
+                            {isPro && user?.stripe_customer_id && (
+                                <button
+                                    onClick={handleManageBilling}
+                                    disabled={processingBilling}
+                                    style={{
+                                        fontSize: '0.75rem',
+                                        background: 'transparent',
+                                        color: 'var(--primary)',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        border: '1px solid var(--primary)',
+                                        cursor: processingBilling ? 'wait' : 'pointer',
+                                        marginTop: '4px',
+                                        marginLeft: '8px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                    }}
+                                >
+                                    <CreditCard size={12} />
+                                    {processingBilling ? 'Loading...' : 'Manage Billing'}
+                                </button>
+                            )}
                         </div>
                     </div>
 
