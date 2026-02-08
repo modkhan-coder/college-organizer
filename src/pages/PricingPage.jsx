@@ -19,8 +19,14 @@ const PricingPage = ({ isModal = false, onClose }) => {
     const handleManageBilling = async () => {
         setProcessingPlan('portal');
         try {
+            // Determine return path based on current location
+            const currentPath = window.location.pathname;
+            const returnPath = currentPath === '/pricing' ? '/profile' : currentPath;
+
+            console.log('[PORTAL] Requesting portal with returnPath:', returnPath);
+
             const { data, error } = await supabase.functions.invoke('create-portal-session', {
-                body: { returnPath: window.location.pathname }
+                body: { returnPath }
             });
 
             if (error) throw error;
@@ -49,12 +55,17 @@ const PricingPage = ({ isModal = false, onClose }) => {
 
         setProcessingPlan(plan);
         try {
-            console.log(`[UPGRADE] Initiating ${plan} (${billingCycle})`);
+            // Determine return path based on current location
+            const currentPath = window.location.pathname;
+            const returnPath = currentPath === '/pricing' ? '/profile' : currentPath;
+
+            console.log(`[UPGRADE] Initiating ${plan} (${billingCycle}) with returnPath:`, returnPath);
+
             const response = await supabase.functions.invoke('create-checkout', {
                 body: {
                     plan,
                     interval: billingCycle,
-                    returnPath: window.location.pathname
+                    returnPath
                 }
             });
 

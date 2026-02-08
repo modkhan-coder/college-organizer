@@ -28,7 +28,8 @@ serve(async (req) => {
         const { data: { user }, error: authError } = await supabase.auth.getUser()
         if (authError || !user) throw new Error('Not authenticated')
 
-        const { returnPath = '/pricing' } = await req.json().catch(() => ({}))
+        const { returnPath = '/profile' } = await req.json().catch(() => ({}))
+        console.log(`[PORTAL START] ReturnPath: ${returnPath}`);
 
         // 3. Initialize Stripe
         const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') ?? ''

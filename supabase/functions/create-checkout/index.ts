@@ -28,7 +28,9 @@ serve(async (req) => {
         const { data: { user }, error: authError } = await supabase.auth.getUser()
         if (authError || !user) throw new Error('Not authenticated')
 
-        const { plan, interval = 'monthly', returnPath = '/pricing' } = await req.json().catch(() => ({}))
+        const { plan, interval = 'monthly', returnPath = '/profile' } = await req.json().catch(() => ({}))
+        console.log(`[CHECKOUT START] Plan: ${plan}, Interval: ${interval}, ReturnPath: ${returnPath}`);
+
         if (!plan) throw new Error('No plan provided')
 
         // Initialize Stripe
