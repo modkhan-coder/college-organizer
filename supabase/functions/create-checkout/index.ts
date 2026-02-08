@@ -65,12 +65,12 @@ serve(async (req) => {
             const supabaseAdmin = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
             await supabaseAdmin.from('profiles').update({ stripe_customer_id: customerId }).eq('id', user.id)
         } else {
-            // DUPLICATE GUARDRAIL: Check if customer already has active subscriptions
-            // BUT allow switching plans if the current subscription is scheduled to cancel
+            // PLAN SWITCH LOGIC: Allow switching to a different plan, block true duplicates
             const activeSubs = await stripe.subscriptions.list({
                 customer: customerId,
                 status: 'active',
-                limit: 5 // Get a few to check cancel_at_period_end
+                expand: ['data.plan.product'],
+                limit: 5
             });
 
             const trialingSubs = await stripe.subscriptions.list({
@@ -79,25 +79,43 @@ serve(async (req) => {
                 limit: 1
             });
 
-            // Find any subscription that is NOT scheduled to cancel
-            const blockingActiveSub = activeSubs.data.find(sub => !sub.cancel_at_period_end);
-            const blockingTrialSub = trialingSubs.data.find(sub => !sub.cancel_at_period_end);
+            // Check if any active subscription is for the SAME plan (true duplicate)
+            const existingSub = activeSubs.data[0] || trialingSubs.data[0];
 
-            if (blockingActiveSub || blockingTrialSub) {
-                console.log(`[CHECKOUT] Non-cancelling sub found for ${user.id}, redirecting to Portal to prevent duplicate.`);
-                const origin = req.headers.get('origin') || 'https://www.collegeorganizer.org';
-                const portalSession = await stripe.billingPortal.sessions.create({
-                    customer: customerId,
-                    return_url: new URL(returnPath, origin).toString(),
-                });
+            if (existingSub && !existingSub.cancel_at_period_end) {
+                // Determine what plan they currently have
+                const currentProdName = (existingSub as any).plan?.product?.name?.toLowerCase() || '';
+                let currentPlan = 'unknown';
+                if (currentProdName.includes('premium')) currentPlan = 'premium';
+                else if (currentProdName.includes('pro')) currentPlan = 'pro';
 
-                return new Response(JSON.stringify({ url: portalSession.url, status: "duplicate_rescue" }), {
-                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                });
+                // If requesting the SAME plan = duplicate, redirect to portal
+                if (currentPlan === plan) {
+                    console.log(`[CHECKOUT] Same plan (${plan}) already active for ${user.id}, redirecting to Portal.`);
+                    const origin = req.headers.get('origin') || 'https://www.collegeorganizer.org';
+                    const portalSession = await stripe.billingPortal.sessions.create({
+                        customer: customerId,
+                        return_url: new URL(returnPath, origin).toString(),
+                    });
+                    return new Response(JSON.stringify({ url: portalSession.url, status: "duplicate_rescue" }), {
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                    });
+                }
+
+                // DIFFERENT plan = Plan Switch! Cancel old sub at period end and create new checkout
+                console.log(`[CHECKOUT] Plan switch detected: ${currentPlan} → ${plan}. Scheduling old sub cancellation.`);
+                try {
+                    await stripe.subscriptions.update(existingSub.id, {
+                        cancel_at_period_end: true
+                    });
+                    console.log(`[CHECKOUT] Old subscription ${existingSub.id} scheduled for cancellation.`);
+                } catch (cancelError: any) {
+                    console.error(`[CHECKOUT] Failed to schedule cancellation: ${cancelError.message}`);
+                }
             }
 
-            // If all active subs are scheduled to cancel, allow new checkout (plan switch)
-            if (activeSubs.data.length > 0) {
+            // If all active subs are scheduled to cancel, allow new checkout
+            if (activeSubs.data.length > 0 && activeSubs.data.every(s => s.cancel_at_period_end)) {
                 console.log(`[CHECKOUT] Existing subs are all scheduled to cancel. Allowing new checkout for plan: ${plan}`);
             }
         }
