@@ -217,18 +217,57 @@ serve(async (req) => {
             }
         }
 
-        // Downgrade Safeguard: Rescue with Portal Session
+        // Downgrade to Free: Cancel subscription and update profile
         if (plan === 'free') {
-            console.log(`[CHECKOUT] Downgrade requested for ${user.id}, redirecting to Portal...`);
-            const origin = req.headers.get('origin') || 'https://www.collegeorganizer.org';
-            const portalSession = await stripe.billingPortal.sessions.create({
-                customer: customerId,
-                return_url: new URL(returnPath, origin).toString(),
-            });
+            console.log(`[CHECKOUT] Downgrade to FREE requested for ${user.id}`);
 
-            return new Response(JSON.stringify({ url: portalSession.url }), {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
+            try {
+                // Find and cancel active subscriptions
+                const existingSubs = await stripe.subscriptions.list({
+                    customer: customerId,
+                    status: 'active',
+                    limit: 5
+                });
+
+                for (const sub of existingSubs.data) {
+                    console.log(`[CHECKOUT] Canceling subscription ${sub.id}...`);
+                    await stripe.subscriptions.cancel(sub.id);
+                }
+
+                // Also cancel any trialing subscriptions
+                const trialingSubs = await stripe.subscriptions.list({
+                    customer: customerId,
+                    status: 'trialing',
+                    limit: 5
+                });
+
+                for (const sub of trialingSubs.data) {
+                    console.log(`[CHECKOUT] Canceling trial subscription ${sub.id}...`);
+                    await stripe.subscriptions.cancel(sub.id);
+                }
+
+                // Update profile to free plan
+                const supabaseAdmin = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
+                await supabaseAdmin.from('profiles').update({
+                    plan: 'free',
+                    subscription_status: 'canceled'
+                }).eq('id', user.id);
+
+                console.log(`[CHECKOUT] User ${user.id} successfully downgraded to FREE.`);
+
+                return new Response(JSON.stringify({
+                    status: 'downgrade_complete',
+                    newPlan: 'free'
+                }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                });
+            } catch (error) {
+                console.error(`[CHECKOUT] Error downgrading to free:`, error);
+                return new Response(JSON.stringify({ error: 'Failed to cancel subscription' }), {
+                    status: 500,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                });
+            }
         }
 
         const prices = {
