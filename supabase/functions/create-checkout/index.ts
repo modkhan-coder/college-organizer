@@ -69,14 +69,12 @@ serve(async (req) => {
             const activeSubs = await stripe.subscriptions.list({
                 customer: customerId,
                 status: 'active',
-                expand: ['data.items.data.price.product'],
                 limit: 5
             });
 
             const trialingSubs = await stripe.subscriptions.list({
                 customer: customerId,
                 status: 'trialing',
-                expand: ['data.items.data.price.product'],
                 limit: 1
             });
 
@@ -84,10 +82,20 @@ serve(async (req) => {
             const existingSub = activeSubs.data[0] || trialingSubs.data[0];
 
             if (existingSub && !existingSub.cancel_at_period_end) {
-                // Determine what plan they currently have - access via items.data[0].price.product.name
+                // Get the product name by retrieving the price's product
+                let currentProdName = '';
                 const subItem = existingSub.items?.data?.[0];
-                const product = subItem?.price?.product;
-                const currentProdName = (typeof product === 'object' && product !== null ? (product as any).name : '')?.toLowerCase() || '';
+                if (subItem?.price?.product) {
+                    const productId = typeof subItem.price.product === 'string'
+                        ? subItem.price.product
+                        : subItem.price.product.id;
+                    try {
+                        const product = await stripe.products.retrieve(productId);
+                        currentProdName = product.name?.toLowerCase() || '';
+                    } catch (e) {
+                        console.error('[CHECKOUT] Failed to retrieve product:', e);
+                    }
+                }
 
                 console.log(`[CHECKOUT] Subscription ${existingSub.id} product name: "${currentProdName}"`);
 
