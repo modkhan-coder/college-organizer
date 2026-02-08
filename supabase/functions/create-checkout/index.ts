@@ -254,12 +254,23 @@ serve(async (req) => {
                 }
 
                 // Update profile to free plan
-                await supabaseAdmin.from('profiles').update({
-                    plan: 'free',
-                    subscription_status: 'canceled'
-                }).eq('id', user.id);
+                console.log(`[CHECKOUT] Updating profile for user ${user.id} to free plan...`);
+                const { data: updateData, error: updateError } = await supabaseAdmin
+                    .from('profiles')
+                    .update({
+                        plan: 'free',
+                        subscription_status: 'canceled'
+                    })
+                    .eq('id', user.id)
+                    .select()
+                    .single();
 
-                console.log(`[CHECKOUT] User ${user.id} successfully downgraded to FREE.`);
+                if (updateError) {
+                    console.error(`[CHECKOUT] Profile update error:`, updateError);
+                    throw new Error(`Database update failed: ${updateError.message}`);
+                }
+
+                console.log(`[CHECKOUT] User ${user.id} successfully downgraded to FREE. New plan:`, updateData?.plan);
 
                 return new Response(JSON.stringify({
                     status: 'downgrade_complete',

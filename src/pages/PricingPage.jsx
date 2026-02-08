@@ -86,6 +86,27 @@ const PricingPage = ({ isModal = false, onClose }) => {
             // Handle instant downgrade (no payment needed)
             if (data?.status === 'downgrade_complete') {
                 console.log('[UPGRADE] Downgrade completed instantly:', data.newPlan);
+
+                // Safety: Also update profile directly from frontend
+                // This ensures the update happens even if Edge Function's update failed
+                try {
+                    const { error: updateError } = await supabase
+                        .from('profiles')
+                        .update({
+                            plan: data.newPlan,
+                            subscription_status: 'canceled'
+                        })
+                        .eq('id', user.id);
+
+                    if (updateError) {
+                        console.error('[UPGRADE] Frontend profile update failed:', updateError);
+                    } else {
+                        console.log('[UPGRADE] Frontend profile update succeeded');
+                    }
+                } catch (e) {
+                    console.error('[UPGRADE] Frontend profile update error:', e);
+                }
+
                 addNotification(`Successfully switched to ${data.newPlan.toUpperCase()} plan!`, 'success');
                 setProcessingPlan(null);
 
