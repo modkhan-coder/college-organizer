@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { ArrowLeft, Upload, FileText, Brain, MessageSquare, HelpCircle, Trash2, RefreshCw, Mic, Volume2, Square, TrendingUp, Calculator, Lock, Link as LinkIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -15,10 +15,11 @@ import 'katex/dist/katex.min.css';
 const CourseDetails = () => {
     const { courseId } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const { courses, assignments, user, addNotification } = useApp();
     const isPro = user?.plan === 'pro' || user?.plan === 'premium';
     const isPremium = user?.plan === 'premium';
-    const [activeTab, setActiveTab] = useState('overview');
+    const [activeTab, setActiveTab] = useState(location.state?.tab || 'overview');
     const [course, setCourse] = useState(null);
     const [files, setFiles] = useState([]);
     const [uploading, setUploading] = useState(false);

@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
 import {
     ArrowLeft, Plus, Upload, FileText, Zap, Link as LinkIcon,
-    Pin, ExternalLink, Copy, Trash2, Edit2, Check, Video, GripVertical
+    Pin, ExternalLink, Copy, Trash2, Edit2, Check, Video, GripVertical, Brain
 } from 'lucide-react';
 import Modal from '../components/Modal';
 import {
@@ -30,6 +30,7 @@ const CourseHub = () => {
     const { user, courses, addNotification } = useApp();
 
     const course = courses.find(c => c.id === courseId);
+    const isPremium = user?.plan === 'premium';
 
     // State for resources
     const [resources, setResources] = useState([]);
@@ -219,6 +220,106 @@ const CourseHub = () => {
                         <p style={{ color: 'var(--text-secondary)', margin: '4px 0 0' }}>{course.name}</p>
                     </div>
                 </div>
+            </div>
+
+            {/* Tabs - matching CourseDetails */}
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: '24px', overflowX: 'auto' }}>
+                <button
+                    onClick={() => navigate(`/courses/${courseId}`)}
+                    style={{
+                        flex: 1,
+                        minWidth: '120px',
+                        padding: '16px',
+                        background: 'none',
+                        border: 'none',
+                        borderBottom: '2px solid transparent',
+                        color: 'var(--text-secondary)',
+                        fontWeight: 'normal',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    <FileText size={18} /> Overview
+                </button>
+                <button
+                    style={{
+                        flex: 1,
+                        minWidth: '120px',
+                        padding: '16px',
+                        background: 'none',
+                        border: 'none',
+                        borderBottom: '2px solid var(--primary)',
+                        color: 'var(--primary)',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    <LinkIcon size={18} /> Hub
+                </button>
+                <button
+                    onClick={() => navigate(`/courses/${courseId}`, { state: { tab: 'materials' } })}
+                    style={{
+                        flex: 1,
+                        minWidth: '120px',
+                        padding: '16px',
+                        background: 'none',
+                        border: 'none',
+                        borderBottom: '2px solid transparent',
+                        color: 'var(--text-secondary)',
+                        fontWeight: 'normal',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    <Upload size={18} /> Materials
+                </button>
+                <button
+                    onClick={() => navigate(isPremium ? `/courses/${courseId}/studio` : '/pricing')}
+                    style={{
+                        flex: 1,
+                        padding: '12px 16px',
+                        background: isPremium ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'var(--bg-app)',
+                        color: isPremium ? 'white' : 'var(--text-secondary)',
+                        border: isPremium ? 'none' : '1px solid var(--border)',
+                        fontSize: '0.95rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        fontWeight: '600',
+                        transition: 'all 0.2s',
+                        borderRadius: '4px 4px 0 0',
+                        position: 'relative'
+                    }}
+                >
+                    <Brain size={18} /> PDF Studio ✨
+                    {!isPremium && (
+                        <span style={{
+                            fontSize: '0.7rem',
+                            padding: '2px 6px',
+                            background: 'var(--primary)',
+                            color: 'white',
+                            borderRadius: '4px',
+                            fontWeight: 'bold'
+                        }}>
+                            PREMIUM
+                        </span>
+                    )}
+                </button>
             </div>
 
             {/* Quick Actions */}
