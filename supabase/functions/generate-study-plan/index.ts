@@ -39,6 +39,36 @@ serve(async (req) => {
             throw new Error("Upgrade to Premium to use AI features!");
         }
 
+        // Check AI Credits
+        const { data: stats } = await supabaseClient
+            .from('user_stats')
+            .select('ai_usage_count, ai_last_reset')
+            .eq('user_id', user.id)
+            .single()
+
+        let usage = stats?.ai_usage_count || 0
+        const limit = 50 // Premium users get 50 credits
+        const lastResetStr = stats?.ai_last_reset
+
+        // Auto-reset if new month
+        const now = new Date()
+        const lastResetDate = lastResetStr ? new Date(lastResetStr) : new Date()
+        if (lastResetStr && (lastResetDate.getMonth() !== now.getMonth() || lastResetDate.getFullYear() !== now.getFullYear())) {
+            console.log(`[STUDY-PLAN] Resetting AI usage for user ${user.id} (New Month)`)
+            const todayStr = now.toISOString().split('T')[0]
+            await supabaseClient.from('user_stats').update({
+                ai_usage_count: 0,
+                ai_chat_count: 0,
+                ai_last_reset: todayStr
+            }).eq('user_id', user.id)
+            usage = 0
+        }
+
+        // Check if limit reached
+        if (usage >= limit) {
+            throw new Error(`AI Limit Reached (${usage}/${limit}). Please wait for next month.`)
+        }
+
         // 2. Parse Input
         const { assignments, hoursPerDay } = await req.json()
         console.log(`Generating plan for user ${user.id} with ${assignments?.length} assignments, ${hoursPerDay} hours/day`)
@@ -91,6 +121,16 @@ serve(async (req) => {
 
         console.log("OpenAI Response received")
         const result = JSON.parse(completion.choices[0].message.content)
+
+        // Increment credit usage after successful generation
+        try {
+            await supabaseClient.from('user_stats').update({
+                ai_usage_count: usage + 1
+            }).eq('user_id', user.id)
+            console.log(`[STUDY-PLAN] User ${user.id}: Study schedule generated, 1 credit deducted`)
+        } catch (e) {
+            console.error("[STUDY-PLAN] Failed to increment usage", e)
+        }
 
         return new Response(
             JSON.stringify(result),

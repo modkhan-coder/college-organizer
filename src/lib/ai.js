@@ -1,9 +1,9 @@
 import { supabase } from '../lib/supabase';
 
-// Helper to call proxy
-const callAI = async (messages, response_format = null, model = 'gpt-4o') => {
+// Helper to call proxy - now includes feature_type for credit tracking
+const callAI = async (messages, response_format = null, model = 'gpt-4o', feature_type = null) => {
     const { data, error } = await supabase.functions.invoke('ai-proxy', {
-        body: { messages, response_format, model }
+        body: { messages, response_format, model, feature_type }
     });
 
     if (error) throw new Error(error.message);
@@ -90,7 +90,7 @@ export const generateStudyGuide = async (context, courseName) => {
         const data = await callAI([
             { role: "system", content: "You are a helpful study assistant who outputs professional LaTeX math using $ and $$ delimiters." },
             { role: "user", content: prompt }
-        ]);
+        ], null, 'gpt-4o', 'notes');
         return data.choices[0].message.content;
     } catch (error) {
         console.error('Study Guide Error:', error);
@@ -123,7 +123,9 @@ export const generateQuiz = async (context, courseName) => {
     try {
         const data = await callAI(
             [{ role: "system", content: "You are a quiz generator. Output JSON only." }, { role: "user", content: prompt }],
-            { type: "json_object" }
+            { type: "json_object" },
+            'gpt-4o',
+            'quiz'
         );
         return JSON.parse(data.choices[0].message.content);
     } catch (error) {
@@ -144,7 +146,7 @@ export const chatWithDocuments = async (history, context) => {
     ];
 
     try {
-        const data = await callAI(messages);
+        const data = await callAI(messages, null, 'gpt-4o', 'chat');
         return data.choices[0].message.content;
     } catch (error) {
         console.error('Chat Error:', error);
@@ -275,7 +277,9 @@ ${contextText.substring(0, 20000)}`;
                 { role: "system", content: "You are a study assistant. Output JSON only with citations." },
                 { role: "user", content: prompt }
             ],
-            { type: "json_object" }
+            { type: "json_object" },
+            'gpt-4o',
+            'notes'
         );
 
         const result = JSON.parse(data.choices[0].message.content);
@@ -341,7 +345,9 @@ ${contextText.substring(0, 20000)}`;
                 { role: "system", content: "You are a quiz generator. Output JSON only." },
                 { role: "user", content: prompt }
             ],
-            { type: "json_object" }
+            { type: "json_object" },
+            'gpt-4o',
+            'quiz'
         );
 
         return JSON.parse(data.choices[0].message.content);
@@ -382,7 +388,7 @@ ${contextText.substring(0, 20000)}`;
         const data = await callAI([
             { role: "system", content: systemPrompt },
             ...history
-        ]);
+        ], null, 'gpt-4o', 'chat');
 
         return data.choices[0].message.content;
     } catch (error) {

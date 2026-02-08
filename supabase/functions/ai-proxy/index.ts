@@ -22,17 +22,18 @@ serve(async (req) => {
             return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
-        // Parse Body
-        const { messages, response_format, model } = await req.json()
+        // Parse Body - now includes feature_type
+        const { messages, response_format, model, feature_type } = await req.json()
 
         // Check Limits
         const { data: profile } = await supabaseClient.from('profiles').select('plan').eq('id', user.id).single()
-        const { data: stats } = await supabaseClient.from('user_stats').select('ai_usage_count, ai_last_reset').eq('user_id', user.id).single()
+        const { data: stats } = await supabaseClient.from('user_stats').select('ai_usage_count, ai_last_reset, ai_chat_count').eq('user_id', user.id).single()
 
         const plan = profile?.plan || 'free'
         let usage = stats?.ai_usage_count || 0
+        let chatCount = stats?.ai_chat_count || 0
         const lastResetStr = stats?.ai_last_reset
-        const limit = (plan === 'premium' || plan === 'pro') ? 50 : 0 // Free users get 0
+        const limit = plan === 'premium' ? 50 : 0 // Only premium users get AI credits
 
         // Auto-Reset logic
         const now = new Date()
@@ -43,8 +44,13 @@ serve(async (req) => {
             console.log(`Resetting AI usage for user ${user.id} (New Month)`)
             const todayStr = now.toISOString().split('T')[0]
             try {
-                await supabaseClient.from('user_stats').update({ ai_usage_count: 0, ai_last_reset: todayStr }).eq('user_id', user.id)
-                usage = 0 // Reset local variable for check below
+                await supabaseClient.from('user_stats').update({
+                    ai_usage_count: 0,
+                    ai_chat_count: 0,  // Also reset chat count
+                    ai_last_reset: todayStr
+                }).eq('user_id', user.id)
+                usage = 0
+                chatCount = 0
             } catch (e) {
                 console.error("Failed to reset usage stats", e)
             }
@@ -78,9 +84,34 @@ serve(async (req) => {
             throw new Error(data.error.message)
         }
 
-        // Increment Usage (Best effort, ignore error)
+        // Increment Usage based on feature type
+        // Chat: 10 messages = 1 credit
+        // Notes/Quiz: 1 generation = 1 credit
         try {
-            await supabaseClient.from('user_stats').update({ ai_usage_count: usage + 1 }).eq('user_id', user.id)
+            if (feature_type === 'chat') {
+                // Chat: increment chat count, only deduct credit every 10 messages
+                const newChatCount = chatCount + 1
+                if (newChatCount >= 10) {
+                    // Deduct 1 credit and reset chat count
+                    await supabaseClient.from('user_stats').update({
+                        ai_usage_count: usage + 1,
+                        ai_chat_count: 0  // Reset after 10 messages
+                    }).eq('user_id', user.id)
+                    console.log(`[AI-PROXY] User ${user.id}: 10 chat messages reached, 1 credit deducted`)
+                } else {
+                    // Just increment chat count, no credit deduction yet
+                    await supabaseClient.from('user_stats').update({
+                        ai_chat_count: newChatCount
+                    }).eq('user_id', user.id)
+                    console.log(`[AI-PROXY] User ${user.id}: Chat message ${newChatCount}/10`)
+                }
+            } else {
+                // Notes, Quiz, or other: 1 credit per generation
+                await supabaseClient.from('user_stats').update({
+                    ai_usage_count: usage + 1
+                }).eq('user_id', user.id)
+                console.log(`[AI-PROXY] User ${user.id}: ${feature_type || 'unknown'} generated, 1 credit deducted`)
+            }
         } catch (e) {
             console.error("Failed to increment usage", e)
         }
