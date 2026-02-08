@@ -377,10 +377,6 @@ const StudyStudio = () => {
 
     // Generate Notes
     const handleGenerateNotes = async () => {
-        // Check and consume credit
-        const hasCredit = await consumeCredit();
-        if (!hasCredit) return;
-
         setGenerating(true);
         try {
             const pdfIds = getScopedPDFIds();
@@ -400,12 +396,10 @@ const StudyStudio = () => {
             }
 
             addNotification('Notes generated!', 'success');
+            await fetchCredits(); // Update credits display
         } catch (error) {
             console.error('Notes error:', error);
             addNotification(`Error: ${error.message}`, 'error');
-            // Refund credit on error
-            await supabase.rpc('consume_pdf_credit', { user_id_param: user.id, credits_to_consume: -1 });
-            await fetchCredits();
         } finally {
             setGenerating(false);
         }
@@ -475,47 +469,28 @@ const StudyStudio = () => {
         return matchesType && matchesSearch;
     });
 
-    // Fetch Credits
+    // Fetch Credits - now uses ai_usage_count from user_stats
     const fetchCredits = async () => {
         try {
             const { data, error } = await supabase
-                .from('profiles')
-                .select('pdf_credits, pdf_credits_reset_at')
-                .eq('id', user.id)
+                .from('user_stats')
+                .select('ai_usage_count, ai_last_reset')
+                .eq('user_id', user.id)
                 .single();
 
             if (error) throw error;
-            setPdfCredits(data?.pdf_credits || 0);
-            setCreditsResetAt(data?.pdf_credits_reset_at);
+            // Premium users get 50 credits, show remaining
+            const limit = 50;
+            const usage = data?.ai_usage_count || 0;
+            setPdfCredits(limit - usage);
+            setCreditsResetAt(data?.ai_last_reset);
         } catch (error) {
             console.error('Error fetching credits:', error);
         }
     };
 
-    // Consume Credit
-    const consumeCredit = async () => {
-        try {
-            const { data, error } = await supabase.rpc('consume_pdf_credit', {
-                user_id_param: user.id,
-                credits_to_consume: 1
-            });
-
-            if (error) throw error;
-
-            if (data) {
-                // Credit consumed successfully
-                await fetchCredits(); // Refresh credits display
-                return true;
-            } else {
-                addNotification('Out of credits! Credits reset monthly.', 'error');
-                return false;
-            }
-        } catch (error) {
-            console.error('Error consuming credit:', error);
-            addNotification('Error checking credits', 'error');
-            return false;
-        }
-    };
+    // Note: Credit consumption is now handled by the backend ai-proxy
+    // Chat: 10 messages = 1 credit, Notes/Quiz: 1 credit each
 
     // Save Quiz
     const handleSaveQuiz = async () => {
@@ -541,10 +516,6 @@ const StudyStudio = () => {
 
     // Generate Quiz
     const handleGenerateQuiz = async () => {
-        // Check and consume credit
-        const hasCredit = await consumeCredit();
-        if (!hasCredit) return;
-
         setGenerating(true);
         try {
             const pdfIds = getScopedPDFIds();
@@ -563,12 +534,10 @@ const StudyStudio = () => {
             if (selectedPDF) {
                 saveContent(selectedPDF.id, 'quiz', quiz);
             }
+            await fetchCredits(); // Update credits display
         } catch (error) {
             console.error('Quiz error:', error);
             addNotification(`Error: ${error.message}`, 'error');
-            // Refund credit on error
-            await supabase.rpc('consume_pdf_credit', { user_id_param: user.id, credits_to_consume: -1 });
-            await fetchCredits();
         } finally {
             setGenerating(false);
         }
@@ -578,10 +547,6 @@ const StudyStudio = () => {
     const handleSendChat = async (e) => {
         e.preventDefault();
         if (!chatInput.trim()) return;
-
-        // Check and consume credit
-        const hasCredit = await consumeCredit();
-        if (!hasCredit) return;
 
         const userMessage = chatInput;
         setChatInput('');
@@ -598,12 +563,10 @@ const StudyStudio = () => {
             if (selectedPDF) {
                 saveContent(selectedPDF.id, 'chat', [...chatHistory, { role: 'user', content: userMessage }, { role: 'assistant', content: response }]);
             }
+            await fetchCredits(); // Update credits display
         } catch (error) {
             console.error('Chat error:', error);
             addNotification(`Error: ${error.message}`, 'error');
-            // Refund credit on error
-            await supabase.rpc('consume_pdf_credit', { user_id_param: user.id, credits_to_consume: -1 });
-            await fetchCredits();
         } finally {
             setGenerating(false);
         }

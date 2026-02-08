@@ -25,6 +25,8 @@ serve(async (req) => {
         // Parse Body - now includes feature_type
         const { messages, response_format, model, feature_type } = await req.json()
 
+        console.log(`[AI-PROXY] Received request with feature_type: ${feature_type}`)
+
         // Check Limits
         const { data: profile } = await supabaseClient.from('profiles').select('plan').eq('id', user.id).single()
         const { data: stats } = await supabaseClient.from('user_stats').select('ai_usage_count, ai_last_reset, ai_chat_count').eq('user_id', user.id).single()
@@ -34,6 +36,8 @@ serve(async (req) => {
         let chatCount = stats?.ai_chat_count || 0
         const lastResetStr = stats?.ai_last_reset
         const limit = plan === 'premium' ? 50 : 0 // Only premium users get AI credits
+
+        console.log(`[AI-PROXY] User stats - usage: ${usage}, chatCount: ${chatCount}, limit: ${limit}`)
 
         // Auto-Reset logic
         const now = new Date()
