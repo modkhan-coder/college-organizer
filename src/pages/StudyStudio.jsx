@@ -285,6 +285,8 @@ const StudyStudio = () => {
             if (pdfError) throw pdfError;
 
             const chunks = chunkTextByPage(pages);
+            console.log(`[PDF Upload] Generated ${chunks.length} chunks for ${numPages} pages`);
+
             const docRecords = chunks.map(chunk => ({
                 user_id: user.id,
                 course_id: courseId,
@@ -297,11 +299,21 @@ const StudyStudio = () => {
                 metadata: { page: chunk.pageNumber }
             }));
 
-            const { error: insertError } = await supabase
-                .from('course_docs')
-                .insert(docRecords);
+            // Insert in batches of 50 to avoid Supabase limits, use upsert for re-uploads
+            const BATCH_SIZE = 50;
+            for (let i = 0; i < docRecords.length; i += BATCH_SIZE) {
+                const batch = docRecords.slice(i, i + BATCH_SIZE);
+                const { error: insertError } = await supabase
+                    .from('course_docs')
+                    .upsert(batch, { onConflict: 'user_id,course_id,pdf_id,page_number' });
 
-            if (insertError) throw insertError;
+                if (insertError) {
+                    console.error(`[PDF Upload] Batch upsert error at index ${i}:`, insertError);
+                    throw insertError;
+                }
+                console.log(`[PDF Upload] Upserted batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(docRecords.length / BATCH_SIZE)}`);
+            }
+
 
             addNotification(`${file.name} processed successfully!`, 'success');
             fetchPDFs();
