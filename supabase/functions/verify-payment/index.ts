@@ -60,61 +60,41 @@ serve(async (req) => {
             }
         }
 
-        // 2. FALLBACK: Intelligent Active Plan Search
+        // 2. FALLBACK: If no plan yet, search active subscriptions for this customer
         if (!planToFulfill && stripeCustomerId) {
             console.log('Searching for active subscriptions for customer:', stripeCustomerId);
             const subscriptions = await stripe.subscriptions.list({
                 customer: stripeCustomerId,
-                status: 'all', // Fetch all to see overlapping states if needed, but we filter below
+                status: 'active',
                 expand: ['data.plan.product'],
                 limit: 10
             });
 
-            // Filter for valid active/trialing subs
-            const validSubs = subscriptions.data.filter(s =>
-                (s.status === 'active' || s.status === 'trialing')
+            // First, try to find a non-cancelling active subscription
+            let activeSub = subscriptions.data.find(s =>
+                (s.status === 'active' || s.status === 'trialing') &&
+                s.cancel_at_period_end === false
             );
 
-            // Sort/Prioritize: 
-            // 1. Prefer NOT cancelled (cancel_at_period_end === false)
-            // 2. Prefer Higher Tier (Premium > Pro) if multiple exist
-            validSubs.sort((a, b) => {
-                // Priority 1: Non-cancelled first
-                if (a.cancel_at_period_end !== b.cancel_at_period_end) {
-                    return a.cancel_at_period_end ? 1 : -1; // false comes before true
-                }
-                // Priority 2: Premium over Pro
-                const prodA = (a as any).plan?.product?.name?.toLowerCase() || '';
-                const prodB = (b as any).plan?.product?.name?.toLowerCase() || '';
-                const isPremA = prodA.includes('premium');
-                const isPremB = prodB.includes('premium');
-                if (isPremA && !isPremB) return -1;
-                if (!isPremA && isPremB) return 1;
-                return 0;
-            });
+            // If no non-cancelling sub, check for a cancelling-but-still-active sub
+            let isCancelling = false;
+            if (!activeSub) {
+                activeSub = subscriptions.data.find(s =>
+                    (s.status === 'active' || s.status === 'trialing') &&
+                    s.cancel_at_period_end === true
+                );
+                if (activeSub) isCancelling = true;
+            }
 
-            const bestSub = validSubs[0]; // The winner
-
-            if (bestSub) {
+            if (activeSub) {
                 // Map Stripe Product back to our plan names
-                const prodName = (bestSub as any).plan?.product?.name?.toLowerCase() || '';
+                // We'll use metadata from the subscription if available, or name mapping
+                const prodName = (activeSub as any).plan?.product?.name?.toLowerCase() || '';
                 if (prodName.includes('premium')) planToFulfill = 'premium';
                 else if (prodName.includes('pro')) planToFulfill = 'pro';
 
-                // If the "best" sub is actually scheduled to cancel AND there are no other active subs,
-                // we might want to respect the cancellation if we are in "Immediate Downgrade" mode.
-                // BUT, if we found it here, it means it's still 'active' status.
-                // The previous logic forced 'free' if cancel_at_period_end was true.
-                // We should only force 'free' if ALL valid subs are cancelling.
-                const allCancelling = validSubs.every(s => s.cancel_at_period_end);
-
-                if (allCancelling) {
-                    console.log('All active subscriptions are cancelling. Treating as FREE for immediate downgrade.');
-                    planToFulfill = null; // Fall through to reset logic
-                } else {
-                    subscriptionId = bestSub.id;
-                    console.log('Found best active subscription:', planToFulfill);
-                }
+                subscriptionId = activeSub.id;
+                console.log(`Found ${isCancelling ? 'CANCELLING' : 'active'} subscription via fallback:`, planToFulfill);
             } else {
                 console.log('No eligible active subscriptions found.');
             }
@@ -126,14 +106,23 @@ serve(async (req) => {
                 Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
             )
 
+            // Check if this subscription is scheduled to cancel
+            let subStatus = 'active';
+            if (stripeCustomerId && subscriptionId) {
+                try {
+                    const sub = await stripe.subscriptions.retrieve(subscriptionId);
+                    if (sub.cancel_at_period_end) subStatus = 'canceling';
+                } catch (e) { /* ignore retrieval errors */ }
+            }
+
             await supabaseAdmin.from('profiles').update({
                 plan: planToFulfill,
-                subscription_status: 'active',
+                subscription_status: subStatus,
                 stripe_customer_id: stripeCustomerId,
                 stripe_subscription_id: subscriptionId
             }).eq('id', user.id)
 
-            return new Response(JSON.stringify({ success: true, plan: planToFulfill }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            return new Response(JSON.stringify({ success: true, plan: planToFulfill, status: subStatus }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         } else {
             // No active plan found - Ensure profile is reset to free
             if (profile?.plan !== 'free') {
@@ -149,7 +138,7 @@ serve(async (req) => {
             return new Response(JSON.stringify({ success: true, plan: 'free' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('[VERIFY ERROR]', error.message)
         return new Response(JSON.stringify({ error: error.message }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
     }

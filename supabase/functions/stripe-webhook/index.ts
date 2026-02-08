@@ -77,63 +77,14 @@ serve(async (req) => {
                 const isCancelled = subscription.status === 'canceled' || subscription.cancel_at_period_end === true
 
                 if (isCancelled) {
-                    console.log(`[WEBHOOK] Cancellation detected for sub ${subscription.id}. Checking for other active limits...`)
-
-                    // Check if customer has ANY other active subscription (e.g. they just switched plans)
-                    const activeSubs = await stripe.subscriptions.list({
-                        customer: customerId,
-                        status: 'active',
-                        limit: 5
-                    })
-
-                    const trialingSubs = await stripe.subscriptions.list({
-                        customer: customerId,
-                        status: 'trialing',
-                        limit: 5
-                    })
-
-                    // Filter out the subscription that just got cancelled/updated from the "active" list if it's there
-                    const validActiveSubs = activeSubs.data.filter(s => s.id !== subscription.id && !s.cancel_at_period_end)
-                    const validTrialingSubs = trialingSubs.data.filter(s => s.id !== subscription.id && !s.cancel_at_period_end)
-
-                    if (validActiveSubs.length > 0 || validTrialingSubs.length > 0) {
-                        console.log(`[WEBHOOK] Customer ${customerId} has other active subscriptions. NOT downgrading to FREE.`)
-                        // Ideally we could update the profile to match the new active plan here, 
-                        // but usually the checkout.session.completed event handles that.
-                        // We just need to ensure we don't OVERWRITE it with 'free'.
-                    } else {
-                        console.log(`[WEBHOOK] No other active subscriptions found for ${customerId}. Resetting to FREE.`)
-                        await supabaseAdmin.from('profiles').update({
-                            plan: 'free',
-                            subscription_status: 'canceled'
-                        }).eq('stripe_customer_id', customerId)
-                    }
-                } else {
-                    // It's NOT cancelled, meaning it might be an upgrade or reactivation from the Portal
-                    console.log(`[WEBHOOK] Subscription ${subscription.id} updated (Active). Syncing plan details...`)
-
-                    const priceId = subscription.items.data[0].price.id;
-                    const productId = subscription.items.data[0].price.product;
-
-                    // Fetch product details to know which plan it is
-                    const product = await stripe.products.retrieve(productId);
-                    const productName = product.name.toLowerCase();
-
-                    let newPlan = 'free';
-                    if (productName.includes('premium')) newPlan = 'premium';
-                    else if (productName.includes('pro')) newPlan = 'pro';
-
-                    if (newPlan !== 'free') {
-                        console.log(`[WEBHOOK] Syncing Portal Upgrade: ${newPlan.toUpperCase()} for ${customerId}`);
-                        await supabaseAdmin.from('profiles').update({
-                            plan: newPlan,
-                            subscription_status: 'active',
-                            stripe_subscription_id: subscription.id
-                        }).eq('stripe_customer_id', customerId)
-                    }
+                    console.log(`[WEBHOOK] Downgrade detected for customer ${customerId}. Resetting to FREE.`)
+                    await supabaseAdmin.from('profiles').update({
+                        plan: 'free',
+                        subscription_status: 'canceled'
+                    }).eq('stripe_customer_id', customerId)
                 }
-            }
                 break
+            }
         }
 
         return new Response(JSON.stringify({ received: true }), {

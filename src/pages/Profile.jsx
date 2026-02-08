@@ -214,7 +214,7 @@ const Profile = () => {
                                 onClick={() => setShowPricingModal(true)}
                                 style={{
                                     fontSize: '0.75rem',
-                                    background: 'var(--accent)',
+                                    background: user?.subscription_status === 'canceling' ? 'var(--warning)' : 'var(--accent)',
                                     color: 'white',
                                     padding: '2px 6px',
                                     borderRadius: '4px',
@@ -224,7 +224,7 @@ const Profile = () => {
                                     display: 'inline-block'
                                 }}
                             >
-                                {user.plan?.toUpperCase() || 'FREE'} PLAN &rarr;
+                                {user.plan?.toUpperCase() || 'FREE'} {user?.subscription_status === 'canceling' ? '(CANCELLING)' : 'PLAN'} &rarr;
                             </button>
                         </div>
                     </div>

@@ -66,10 +66,11 @@ serve(async (req) => {
             await supabaseAdmin.from('profiles').update({ stripe_customer_id: customerId }).eq('id', user.id)
         } else {
             // DUPLICATE GUARDRAIL: Check if customer already has active subscriptions
+            // BUT allow switching plans if the current subscription is scheduled to cancel
             const activeSubs = await stripe.subscriptions.list({
                 customer: customerId,
                 status: 'active',
-                limit: 1
+                limit: 5 // Get a few to check cancel_at_period_end
             });
 
             const trialingSubs = await stripe.subscriptions.list({
@@ -78,8 +79,12 @@ serve(async (req) => {
                 limit: 1
             });
 
-            if (activeSubs.data.length > 0 || trialingSubs.data.length > 0) {
-                console.log(`[CHECKOUT] Active sub found for ${user.id}, redirecting to Portal to prevent duplicate.`);
+            // Find any subscription that is NOT scheduled to cancel
+            const blockingActiveSub = activeSubs.data.find(sub => !sub.cancel_at_period_end);
+            const blockingTrialSub = trialingSubs.data.find(sub => !sub.cancel_at_period_end);
+
+            if (blockingActiveSub || blockingTrialSub) {
+                console.log(`[CHECKOUT] Non-cancelling sub found for ${user.id}, redirecting to Portal to prevent duplicate.`);
                 const origin = req.headers.get('origin') || 'https://www.collegeorganizer.org';
                 const portalSession = await stripe.billingPortal.sessions.create({
                     customer: customerId,
@@ -89,6 +94,11 @@ serve(async (req) => {
                 return new Response(JSON.stringify({ url: portalSession.url, status: "duplicate_rescue" }), {
                     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 });
+            }
+
+            // If all active subs are scheduled to cancel, allow new checkout (plan switch)
+            if (activeSubs.data.length > 0) {
+                console.log(`[CHECKOUT] Existing subs are all scheduled to cancel. Allowing new checkout for plan: ${plan}`);
             }
         }
 
