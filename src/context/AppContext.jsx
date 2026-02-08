@@ -147,6 +147,31 @@ export const AppProvider = ({ children }) => {
     return () => { supabase.removeChannel(channel); };
   }, [user?.id]);
 
+  // Listen for refetch-user event (e.g., after plan changes)
+  useEffect(() => {
+    const handleRefetchUser = async () => {
+      if (!user?.id) return;
+      console.log('[AppContext] Refetching user profile...');
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (!error && data) {
+        setUser(prev => ({
+          ...prev,
+          ...data,
+          settings: { ...(prev?.settings || {}), ...(data.settings || {}) }
+        }));
+        console.log('[AppContext] User profile updated:', data.plan);
+      }
+    };
+
+    window.addEventListener('refetch-user', handleRefetchUser);
+    return () => window.removeEventListener('refetch-user', handleRefetchUser);
+  }, [user?.id]);
+
   const loadSupabaseData = async (currentUser) => {
     const userId = currentUser.id;
     setLoading(true);
