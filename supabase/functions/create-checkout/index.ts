@@ -99,9 +99,26 @@ serve(async (req) => {
 
                 console.log(`[CHECKOUT] Subscription ${existingSub.id} product name: "${currentProdName}"`);
 
+                // Determine current plan from Stripe product name
                 let currentPlan = 'unknown';
                 if (currentProdName.includes('premium')) currentPlan = 'premium';
                 else if (currentProdName.includes('pro')) currentPlan = 'pro';
+
+                // FALLBACK: If Stripe product name detection fails, use the profile's stored plan
+                if (currentPlan === 'unknown') {
+                    // Get profile plan from database as fallback
+                    const supabaseAdmin = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
+                    const { data: profileData } = await supabaseAdmin
+                        .from('profiles')
+                        .select('plan')
+                        .eq('id', user.id)
+                        .single();
+
+                    if (profileData?.plan && ['pro', 'premium'].includes(profileData.plan)) {
+                        currentPlan = profileData.plan;
+                        console.log(`[CHECKOUT] Using profile plan as fallback: ${currentPlan}`);
+                    }
+                }
 
                 console.log(`[CHECKOUT] Detected currentPlan: ${currentPlan}, requestedPlan: ${plan}`);
 
