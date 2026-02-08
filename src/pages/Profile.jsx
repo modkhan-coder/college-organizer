@@ -86,17 +86,20 @@ const Profile = () => {
                 body: { returnPath: '/profile' }
             });
 
+            // Debug: log full response
+            console.log('[BILLING] Full response:', JSON.stringify(data, null, 2));
+
             if (error) throw error;
 
             // Check for error in response body (from Edge Function)
             if (data?.error) {
-                throw new Error(data.error);
+                throw new Error(`${data.error} | Debug: ${JSON.stringify(data.debug)}`);
             }
 
             if (data?.url) {
                 window.location.href = data.url;
             } else {
-                throw new Error('No portal URL received');
+                throw new Error(`No portal URL received | Debug: ${JSON.stringify(data)}`);
             }
         } catch (error) {
             console.error('[BILLING] Failed:', error);
