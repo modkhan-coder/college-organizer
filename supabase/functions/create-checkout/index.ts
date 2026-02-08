@@ -89,6 +89,11 @@ serve(async (req) => {
                 if (currentProdName.includes('premium')) currentPlan = 'premium';
                 else if (currentProdName.includes('pro')) currentPlan = 'pro';
 
+                // Plan hierarchy: premium (3) > pro (2) > free (1)
+                const planRank: Record<string, number> = { premium: 3, pro: 2, free: 1, unknown: 0 };
+                const currentRank = planRank[currentPlan];
+                const targetRank = planRank[plan];
+
                 // If requesting the SAME plan = duplicate, redirect to portal
                 if (currentPlan === plan) {
                     console.log(`[CHECKOUT] Same plan (${plan}) already active for ${user.id}, redirecting to Portal.`);
@@ -102,8 +107,60 @@ serve(async (req) => {
                     });
                 }
 
-                // DIFFERENT plan = Plan Switch! Cancel old sub at period end and create new checkout
-                console.log(`[CHECKOUT] Plan switch detected: ${currentPlan} → ${plan}. Scheduling old sub cancellation.`);
+                // DOWNGRADE (e.g., Premium → Pro): Update subscription in-place, no new payment
+                if (targetRank < currentRank && plan !== 'free') {
+                    console.log(`[CHECKOUT] DOWNGRADE detected: ${currentPlan} → ${plan}. Updating subscription in-place.`);
+
+                    // Get the price ID for the target plan
+                    const targetPrices = {
+                        pro: { monthly: 499, yearly: 4999 },
+                        premium: { monthly: 999, yearly: 9999 }
+                    };
+                    const targetAmount = targetPrices[plan as keyof typeof targetPrices]?.[interval as 'monthly' | 'yearly'];
+
+                    // Create a new price for the target plan
+                    const newPrice = await stripe.prices.create({
+                        currency: 'usd',
+                        product_data: { name: `College Org ${plan.toUpperCase()}` },
+                        unit_amount: targetAmount,
+                        recurring: { interval: interval === 'monthly' ? 'month' : 'year' }
+                    });
+
+                    // Update the subscription to the new price with proration
+                    const updatedSub = await stripe.subscriptions.update(existingSub.id, {
+                        items: [{
+                            id: existingSub.items.data[0].id,
+                            price: newPrice.id,
+                        }],
+                        proration_behavior: 'create_prorations', // Apply prorated credit
+                        metadata: { plan, userId: user.id }
+                    });
+
+                    // Update the profile immediately
+                    const supabaseAdmin = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
+                    await supabaseAdmin.from('profiles').update({
+                        plan: plan,
+                        subscription_status: 'active'
+                    }).eq('id', user.id);
+
+                    console.log(`[CHECKOUT] Subscription ${updatedSub.id} downgraded to ${plan} successfully.`);
+
+                    // Return success without redirect - frontend will handle UI update
+                    const origin = req.headers.get('origin') || 'https://www.collegeorganizer.org';
+                    const successUrl = new URL(returnPath, origin);
+                    successUrl.searchParams.set('plan_switched', plan);
+
+                    return new Response(JSON.stringify({
+                        url: successUrl.toString(),
+                        status: "downgrade_complete",
+                        newPlan: plan
+                    }), {
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                    });
+                }
+
+                // UPGRADE (e.g., Pro → Premium): Schedule old sub cancellation, create new checkout for payment
+                console.log(`[CHECKOUT] UPGRADE detected: ${currentPlan} → ${plan}. Creating new checkout.`);
                 try {
                     await stripe.subscriptions.update(existingSub.id, {
                         cancel_at_period_end: true

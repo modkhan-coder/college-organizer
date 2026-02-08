@@ -87,6 +87,20 @@ const PricingPage = ({ isModal = false, onClose }) => {
 
             if (data?.error) throw new Error(data.error);
 
+            // Handle instant downgrade (no payment needed)
+            if (data?.status === 'downgrade_complete') {
+                console.log('[UPGRADE] Downgrade completed instantly:', data.newPlan);
+                addNotification(`Successfully switched to ${data.newPlan.toUpperCase()} plan!`, 'success');
+                setProcessingPlan(null);
+
+                // Refetch user data to update UI
+                window.dispatchEvent(new Event('refetch-user'));
+
+                // Close modal if open
+                if (onClose) onClose();
+                return;
+            }
+
             if (data?.url) {
                 window.location.href = data.url;
             } else {
