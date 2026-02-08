@@ -103,9 +103,20 @@ serve(async (req) => {
             }).eq('id', user.id)
 
             return new Response(JSON.stringify({ success: true, plan: planToFulfill }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        } else {
+            // No active plan found - Ensure profile is reset to free
+            if (profile?.plan !== 'free') {
+                const supabaseAdmin = createClient(
+                    Deno.env.get('SUPABASE_URL') ?? '',
+                    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+                )
+                await supabaseAdmin.from('profiles').update({
+                    plan: 'free',
+                    subscription_status: 'canceled'
+                }).eq('id', user.id)
+            }
+            return new Response(JSON.stringify({ success: true, plan: 'free' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
-
-        return new Response(JSON.stringify({ success: true, plan: profile?.plan || 'free' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
     } catch (error) {
         console.error('[VERIFY ERROR]', error.message)
