@@ -43,6 +43,7 @@ const CourseHub = () => {
     const [showEditNoteModal, setShowEditNoteModal] = useState(false);
     const [editingNote, setEditingNote] = useState(null);
     const [showOfficeHoursModal, setShowOfficeHoursModal] = useState(false);
+    const [showFilePickerModal, setShowFilePickerModal] = useState(false);
 
     // Search and filter state
     const [searchQuery, setSearchQuery] = useState('');
@@ -287,6 +288,13 @@ const CourseHub = () => {
                     </button>
                     <button
                         className="btn btn-secondary"
+                        onClick={() => setShowFilePickerModal(true)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                    >
+                        <FileText size={16} /> Add from Materials
+                    </button>
+                    <button
+                        className="btn btn-secondary"
                         onClick={() => setShowAddNoteModal(true)}
                         style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                     >
@@ -412,6 +420,12 @@ const CourseHub = () => {
                 }}
                 courseId={courseId}
                 note={editingNote}
+                onSuccess={fetchHubData}
+            />
+            <MaterialsFilePickerModal
+                isOpen={showFilePickerModal}
+                onClose={() => setShowFilePickerModal(false)}
+                courseId={courseId}
                 onSuccess={fetchHubData}
             />
         </div>
@@ -1457,6 +1471,145 @@ const AddOfficeHoursModal = ({ isOpen, onClose, courseId, onSuccess }) => {
                     </button>
                 </div>
             </form>
+        </Modal>
+    );
+};
+
+// Materials File Picker Modal - Select files already in Materials
+const MaterialsFilePickerModal = ({ isOpen, onClose, courseId, onSuccess }) => {
+    const { user, addNotification } = useApp();
+    const [files, setFiles] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [selectedFiles, setSelectedFiles] = useState([]);
+    const [adding, setAdding] = useState(false);
+
+    // Fetch files when modal opens
+    useEffect(() => {
+        if (isOpen && user && courseId) {
+            fetchMaterialsFiles();
+        }
+    }, [isOpen, user, courseId]);
+
+    const fetchMaterialsFiles = async () => {
+        setLoading(true);
+        try {
+            const { data, error } = await supabase.storage
+                .from('course_materials')
+                .list(`${user.id}/${courseId}`);
+
+            if (error) throw error;
+            // Filter out folders (only files)
+            setFiles((data || []).filter(f => f.name && !f.name.endsWith('/')));
+        } catch (error) {
+            console.error('Error fetching materials:', error);
+            addNotification(`Error: ${error.message}`, 'error');
+        }
+        setLoading(false);
+    };
+
+    const toggleFile = (fileName) => {
+        setSelectedFiles(prev =>
+            prev.includes(fileName)
+                ? prev.filter(f => f !== fileName)
+                : [...prev, fileName]
+        );
+    };
+
+    const handleAddSelected = async () => {
+        if (selectedFiles.length === 0) {
+            addNotification('Please select at least one file', 'error');
+            return;
+        }
+
+        setAdding(true);
+        try {
+            for (const fileName of selectedFiles) {
+                const filePath = `${user.id}/${courseId}/${fileName}`;
+                const { data: urlData } = supabase.storage
+                    .from('course_materials')
+                    .getPublicUrl(filePath);
+
+                const { error } = await supabase
+                    .from('course_resources')
+                    .insert({
+                        course_id: courseId,
+                        user_id: user.id,
+                        type: 'file',
+                        title: fileName,
+                        file_id: filePath,
+                        url: urlData.publicUrl,
+                        tags: []
+                    });
+
+                if (error) throw error;
+            }
+
+            addNotification(`Added ${selectedFiles.length} file(s) to Hub!`, 'success');
+            setSelectedFiles([]);
+            onClose();
+            onSuccess();
+        } catch (error) {
+            console.error('Error adding files:', error);
+            addNotification(`Error: ${error.message}`, 'error');
+        }
+        setAdding(false);
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Add from Materials">
+            {loading ? (
+                <div style={{ textAlign: 'center', padding: '24px' }}>Loading files...</div>
+            ) : files.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>
+                    No files in Materials. Upload files in the Materials tab first.
+                </div>
+            ) : (
+                <>
+                    <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.9rem' }}>
+                        Select files to add to Hub (won't create duplicates in storage)
+                    </p>
+                    <div style={{ maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {files.map(file => (
+                            <label
+                                key={file.name}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px',
+                                    padding: '12px',
+                                    background: selectedFiles.includes(file.name) ? 'var(--primary-light)' : 'var(--bg-app)',
+                                    border: `1px solid ${selectedFiles.includes(file.name) ? 'var(--primary)' : 'var(--border)'}`,
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={selectedFiles.includes(file.name)}
+                                    onChange={() => toggleFile(file.name)}
+                                    style={{ width: '18px', height: '18px' }}
+                                />
+                                <FileText size={20} color="var(--primary)" />
+                                <span style={{ flex: 1 }}>{file.name}</span>
+                            </label>
+                        ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                        <button type="button" onClick={onClose} className="btn btn-secondary" style={{ flex: 1 }}>
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleAddSelected}
+                            className="btn btn-primary"
+                            style={{ flex: 1 }}
+                            disabled={adding || selectedFiles.length === 0}
+                        >
+                            {adding ? 'Adding...' : `Add ${selectedFiles.length} File${selectedFiles.length !== 1 ? 's' : ''}`}
+                        </button>
+                    </div>
+                </>
+            )}
         </Modal>
     );
 };
