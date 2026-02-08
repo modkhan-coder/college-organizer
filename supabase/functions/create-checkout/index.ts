@@ -221,33 +221,39 @@ serve(async (req) => {
         if (plan === 'free') {
             console.log(`[CHECKOUT] Downgrade to FREE requested for ${user.id}`);
 
+            const supabaseAdmin = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
+
             try {
-                // Find and cancel active subscriptions
-                const existingSubs = await stripe.subscriptions.list({
-                    customer: customerId,
-                    status: 'active',
-                    limit: 5
-                });
+                // Only try to cancel subscriptions if user has a Stripe customer ID
+                if (customerId) {
+                    // Find and cancel active subscriptions
+                    const existingSubs = await stripe.subscriptions.list({
+                        customer: customerId,
+                        status: 'active',
+                        limit: 5
+                    });
 
-                for (const sub of existingSubs.data) {
-                    console.log(`[CHECKOUT] Canceling subscription ${sub.id}...`);
-                    await stripe.subscriptions.cancel(sub.id);
-                }
+                    for (const sub of existingSubs.data) {
+                        console.log(`[CHECKOUT] Canceling subscription ${sub.id}...`);
+                        await stripe.subscriptions.cancel(sub.id);
+                    }
 
-                // Also cancel any trialing subscriptions
-                const trialingSubs = await stripe.subscriptions.list({
-                    customer: customerId,
-                    status: 'trialing',
-                    limit: 5
-                });
+                    // Also cancel any trialing subscriptions
+                    const trialingSubs = await stripe.subscriptions.list({
+                        customer: customerId,
+                        status: 'trialing',
+                        limit: 5
+                    });
 
-                for (const sub of trialingSubs.data) {
-                    console.log(`[CHECKOUT] Canceling trial subscription ${sub.id}...`);
-                    await stripe.subscriptions.cancel(sub.id);
+                    for (const sub of trialingSubs.data) {
+                        console.log(`[CHECKOUT] Canceling trial subscription ${sub.id}...`);
+                        await stripe.subscriptions.cancel(sub.id);
+                    }
+                } else {
+                    console.log(`[CHECKOUT] No Stripe customer ID for user ${user.id}, skipping subscription cancellation.`);
                 }
 
                 // Update profile to free plan
-                const supabaseAdmin = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
                 await supabaseAdmin.from('profiles').update({
                     plan: 'free',
                     subscription_status: 'canceled'
@@ -263,10 +269,27 @@ serve(async (req) => {
                 });
             } catch (error) {
                 console.error(`[CHECKOUT] Error downgrading to free:`, error);
-                return new Response(JSON.stringify({ error: 'Failed to cancel subscription' }), {
-                    status: 500,
-                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                });
+
+                // Even if Stripe fails, try to update the profile
+                try {
+                    await supabaseAdmin.from('profiles').update({
+                        plan: 'free',
+                        subscription_status: 'canceled'
+                    }).eq('id', user.id);
+
+                    return new Response(JSON.stringify({
+                        status: 'downgrade_complete',
+                        newPlan: 'free',
+                        warning: 'Stripe cancellation may have failed, but profile updated'
+                    }), {
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                    });
+                } catch (dbError) {
+                    return new Response(JSON.stringify({ error: 'Failed to cancel subscription' }), {
+                        status: 500,
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                    });
+                }
             }
         }
 
