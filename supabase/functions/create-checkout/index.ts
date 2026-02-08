@@ -159,21 +159,28 @@ serve(async (req) => {
                     });
                 }
 
-                // UPGRADE (e.g., Pro → Premium): Schedule old sub cancellation, create new checkout for payment
-                console.log(`[CHECKOUT] UPGRADE detected: ${currentPlan} → ${plan}. Creating new checkout.`);
-                try {
-                    await stripe.subscriptions.update(existingSub.id, {
-                        cancel_at_period_end: true
-                    });
-                    console.log(`[CHECKOUT] Old subscription ${existingSub.id} scheduled for cancellation.`);
-                } catch (cancelError: any) {
-                    console.error(`[CHECKOUT] Failed to schedule cancellation: ${cancelError.message}`);
-                }
+                // UPGRADE (e.g., Pro → Premium): Do NOT cancel yet! Pass old sub ID for webhook to handle
+                console.log(`[CHECKOUT] UPGRADE detected: ${currentPlan} → ${plan}. Will cancel old sub AFTER payment succeeds.`);
+                // Store the old subscription ID to cancel after successful payment
+                // This will be passed in the checkout metadata
             }
 
             // If all active subs are scheduled to cancel, allow new checkout
             if (activeSubs.data.length > 0 && activeSubs.data.every(s => s.cancel_at_period_end)) {
                 console.log(`[CHECKOUT] Existing subs are all scheduled to cancel. Allowing new checkout for plan: ${plan}`);
+            }
+        }
+
+        // Track old subscription for cancellation after payment (upgrade flow)
+        let oldSubscriptionId = null;
+        if (customerId) {
+            const existingSubs = await stripe.subscriptions.list({
+                customer: customerId,
+                status: 'active',
+                limit: 1
+            });
+            if (existingSubs.data.length > 0 && !existingSubs.data[0].cancel_at_period_end) {
+                oldSubscriptionId = existingSubs.data[0].id;
             }
         }
 
@@ -221,7 +228,7 @@ serve(async (req) => {
             }],
             success_url: successUrl.toString(),
             cancel_url: cancelUrl.toString(),
-            metadata: { plan, userId: user.id }
+            metadata: { plan, userId: user.id, oldSubscriptionId: oldSubscriptionId || '' }
         })
 
         return new Response(JSON.stringify({ url: session.url }), {

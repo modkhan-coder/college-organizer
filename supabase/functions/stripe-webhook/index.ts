@@ -74,14 +74,40 @@ serve(async (req) => {
             case 'customer.subscription.deleted': {
                 const subscription = event.data.object
                 const customerId = subscription.customer
-                const isCancelled = subscription.status === 'canceled' || subscription.cancel_at_period_end === true
 
-                if (isCancelled) {
-                    console.log(`[WEBHOOK] Downgrade detected for customer ${customerId}. Resetting to FREE.`)
-                    await supabaseAdmin.from('profiles').update({
-                        plan: 'free',
-                        subscription_status: 'canceled'
-                    }).eq('stripe_customer_id', customerId)
+                // Only reset to FREE if the subscription is ACTUALLY canceled, not just scheduled to cancel
+                // cancel_at_period_end=true means the user might be upgrading/switching plans
+                const isActuallyCanceled = subscription.status === 'canceled'
+
+                if (isActuallyCanceled) {
+                    console.log(`[WEBHOOK] Subscription ${subscription.id} cancelled. Checking for other active subs...`)
+
+                    // Check if user has ANY other active subscription before resetting to free
+                    const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') as string, {
+                        apiVersion: '2023-10-16',
+                        httpClient: Stripe.createFetchHttpClient(),
+                    })
+
+                    try {
+                        const activeSubs = await stripe.subscriptions.list({
+                            customer: customerId as string,
+                            status: 'active',
+                            limit: 1
+                        })
+
+                        if (activeSubs.data.length === 0) {
+                            console.log(`[WEBHOOK] No other active subs for ${customerId}. Resetting to FREE.`)
+                            await supabaseAdmin.from('profiles').update({
+                                plan: 'free',
+                                subscription_status: 'canceled'
+                            }).eq('stripe_customer_id', customerId)
+                        } else {
+                            console.log(`[WEBHOOK] User still has active sub ${activeSubs.data[0].id}. Keeping plan.`)
+                        }
+                    } catch (checkError) {
+                        console.error('[WEBHOOK] Error checking active subs:', checkError)
+                        // Don't reset on error - better to leave user on current plan
+                    }
                 }
                 break
             }
