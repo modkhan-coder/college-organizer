@@ -88,9 +88,11 @@ const CourseDetails = () => {
 
             // 2. Extract Text (if PDF)
             if (file.type === 'application/pdf') {
-                const text = await extractTextFromPdf(file);
-                console.log('Antigravity Debug: Text extraction successful (Length:', text.length, '). Chunking...');
-                const chunks = chunkText(text);
+                const { numPages, pages } = await extractTextFromPdf(file);
+                // Combine all page texts into a single string for legacy chunking
+                const fullText = pages.map(p => p.text).join('\n\n');
+                console.log('Antigravity Debug: Text extraction successful (Pages:', numPages, ', Length:', fullText.length, '). Chunking...');
+                const chunks = chunkText(fullText);
 
                 // 3. Save Chunks to Supabase DB (course_docs)
                 const docRecords = chunks.map((chunk, idx) => ({
@@ -108,6 +110,7 @@ const CourseDetails = () => {
                     throw new Error(`Saving to Database failed: ${insertError.message}. Did you run the SQL script?`);
                 }
             }
+
 
             addNotification('File processed successfully!', 'success');
             fetchFiles();
