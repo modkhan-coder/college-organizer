@@ -108,9 +108,32 @@ serve(async (req) => {
                             subscription_status: 'canceled'
                         }).eq('stripe_customer_id', customerId)
                     }
+                } else {
+                    // It's NOT cancelled, meaning it might be an upgrade or reactivation from the Portal
+                    console.log(`[WEBHOOK] Subscription ${subscription.id} updated (Active). Syncing plan details...`)
+
+                    const priceId = subscription.items.data[0].price.id;
+                    const productId = subscription.items.data[0].price.product;
+
+                    // Fetch product details to know which plan it is
+                    const product = await stripe.products.retrieve(productId);
+                    const productName = product.name.toLowerCase();
+
+                    let newPlan = 'free';
+                    if (productName.includes('premium')) newPlan = 'premium';
+                    else if (productName.includes('pro')) newPlan = 'pro';
+
+                    if (newPlan !== 'free') {
+                        console.log(`[WEBHOOK] Syncing Portal Upgrade: ${newPlan.toUpperCase()} for ${customerId}`);
+                        await supabaseAdmin.from('profiles').update({
+                            plan: newPlan,
+                            subscription_status: 'active',
+                            stripe_subscription_id: subscription.id
+                        }).eq('stripe_customer_id', customerId)
+                    }
                 }
-                break
             }
+                break
         }
 
         return new Response(JSON.stringify({ received: true }), {
