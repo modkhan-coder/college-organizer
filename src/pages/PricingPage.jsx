@@ -288,11 +288,12 @@ const PricingPage = ({ isModal = false, onClose }) => {
                     </button>
 
                     <Feature included={true} text="Everything in Pro" />
-                    <Feature included={true} text="50 AI Credits / mo (Plans, Quizzes, Chat)" />
-                    <Feature included={true} text="Smart Study Plans (AI)" />
-                    <Feature included={true} text="AI Study Schedule Generation" />
-                    <Feature included={true} text="AI Quizzes" />
-                    <Feature included={true} text="Chat with Documents (PDF)" />
+                    <Feature included={true} text="50 AI Credits/mo" />
+                    <Feature included={true} text="↳ 10 chat messages = 1 credit" />
+                    <Feature included={true} text="↳ 1 quiz, notes, or schedule = 1 credit" />
+                    <Feature included={true} text="PDF Studio (Chat with PDFs)" />
+                    <Feature included={true} text="AI Notes & Quiz Generation" />
+                    <Feature included={true} text="Smart Study Schedule Builder" />
                     <Feature included={true} text="Priority Support" />
                     <Feature included={true} text="Early Access Features" />
                     <Feature included={true} text="Custom Themes" />
