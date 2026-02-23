@@ -1,17 +1,4 @@
 {
-    "redirects": [
-        {
-            "source": "/:path*",
-            "destination": "https://www.collegeorganizer.org/:path*",
-            "permanent": true,
-            "has": [
-                {
-                    "type": "host",
-                    "value": "collegeorganizer.org"
-                }
-            ]
-        }
-    ],
     "routes": [
         {
             "handle": "filesystem"
