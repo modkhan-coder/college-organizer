@@ -1,4 +1,17 @@
 {
+    "redirects": [
+        {
+            "source": "/:path*",
+            "has": [
+                {
+                    "type": "host",
+                    "value": "collegeorganizer.org"
+                }
+            ],
+            "destination": "https://www.collegeorganizer.org/:path*",
+            "permanent": true
+        }
+    ],
     "routes": [
         {
             "handle": "filesystem"
