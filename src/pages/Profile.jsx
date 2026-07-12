@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { Link, useSearchParams } from 'react-router-dom';
-import { User, Save, LogOut, Globe, CreditCard } from 'lucide-react';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { User, Save, LogOut, Globe, CreditCard, Shield } from 'lucide-react';
 import { generateICS, generateCSV, downloadFile } from '../utils/exportUtils';
 import { useTheme } from '../context/ThemeContext';
 import { Palette, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import PricingPage from './PricingPage';
+import { triggerSuccess } from '../utils/haptics';
+import { Browser } from '@capacitor/browser';
+import { Capacitor } from '@capacitor/core';
 
 const Profile = () => {
     const {
@@ -18,6 +21,7 @@ const Profile = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [showPricingModal, setShowPricingModal] = useState(false);
     const [processingBilling, setProcessingBilling] = useState(false);
+    const navigate = useNavigate();
 
     // Payment verification is now handled globally by PaymentSync
 
@@ -26,6 +30,7 @@ const Profile = () => {
     const [remindersEnabled, setRemindersEnabled] = useState(user?.settings?.reminders !== false); // default true
     const [bannerEnabled, setBannerEnabled] = useState(user?.settings?.banner !== false); // default true
     const [emailDigestEnabled, setEmailDigestEnabled] = useState(false);
+    const [dataSharingEnabled, setDataSharingEnabled] = useState(user?.settings?.data_sharing_enabled !== false); // default true
 
     // Local state for form
     const [name, setName] = useState(user?.name || '');
@@ -65,9 +70,11 @@ const Profile = () => {
             settings: {
                 ...(user.settings || {}),
                 reminders: remindersEnabled,
-                banner: bannerEnabled
+                banner: bannerEnabled,
+                data_sharing_enabled: dataSharingEnabled
             }
         });
+        triggerSuccess();
         addNotification('Profile and settings updated!', 'success');
     };
 
@@ -93,7 +100,11 @@ const Profile = () => {
             }
 
             if (data?.url) {
-                window.location.href = data.url;
+                if (Capacitor.isNativePlatform()) {
+                    await Browser.open({ url: data.url });
+                } else {
+                    window.location.href = data.url;
+                }
             } else {
                 throw new Error('No portal URL received');
             }
@@ -229,7 +240,7 @@ const Profile = () => {
                                 <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
                                 <span style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-                                    {(displayName || user.name || user.email || '?').charAt(0).toUpperCase()}
+                                    {(displayName || user?.name || user?.email || '?').charAt(0).toUpperCase()}
                                 </span>
                             )}
                         </div>
@@ -341,7 +352,7 @@ const Profile = () => {
                                     onClick={() => {
                                         if (isLocked) {
                                             if (confirm('Premium Theme locked! Upgrade to Premium to unlock custom themes.')) {
-                                                window.location.href = '/pricing';
+                                                navigate('/pricing');
                                             }
                                         } else {
                                             setTheme(t.id);
@@ -398,7 +409,7 @@ const Profile = () => {
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: isPro ? 1 : 0.7 }}>
                             <div
-                                onClick={() => !isPro && confirm('Daily Digest locked! Upgrade to Pro to enable email summaries.') && (window.location.href = '/pricing')}
+                                onClick={() => !isPro && confirm('Daily Digest locked! Upgrade to Pro to enable email summaries.') && navigate('/pricing')}
                                 style={{ cursor: !isPro ? 'pointer' : 'default' }}
                             >
                                 <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -412,7 +423,7 @@ const Profile = () => {
                                 onChange={e => {
                                     if (!isPro) {
                                         if (confirm('Daily Digest locked! Upgrade to Pro to enable email summaries.')) {
-                                            window.location.href = '/pricing';
+                                            navigate('/pricing');
                                         }
                                     } else {
                                         setEmailDigestEnabled(e.target.checked);
@@ -423,7 +434,6 @@ const Profile = () => {
                         </div>
                     </div>
                 </div>
-
                 {/* Data Management Card */}
                 <div className="card">
                     <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '16px' }}>Data Management</h3>
@@ -444,6 +454,47 @@ const Profile = () => {
                         <button className="btn btn-secondary" onClick={handleExportCSV}>
                             Export Assignments CSV
                         </button>
+                    </div>
+                </div>
+
+                {/* Privacy & Ad Preferences Card */}
+                <div className="card">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                        <Shield size={20} color="var(--primary)" />
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>Privacy & Ad Preferences</h3>
+                    </div>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '20px' }}>
+                        Manage how your data is used for personalization and shared with advertising partners.
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ flex: 1, paddingRight: '12px' }}>
+                                <h4 style={{ margin: 0, fontSize: '0.95rem' }}>Partner Data Sharing</h4>
+                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '4px' }}>
+                                    Provide additional information to advertising partners to select which ads to show and measure performance.
+                                </p>
+                            </div>
+                            <input
+                                type="checkbox"
+                                checked={dataSharingEnabled}
+                                onChange={e => setDataSharingEnabled(e.target.checked)}
+                                style={{ transform: 'scale(1.2)', cursor: 'pointer' }}
+                            />
+                        </div>
+                        <Link
+                            to="/privacy"
+                            style={{
+                                color: 'var(--primary)',
+                                fontSize: '0.875rem',
+                                fontWeight: '600',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                marginTop: '8px'
+                            }}
+                        >
+                            View Privacy Center &rarr;
+                        </Link>
                     </div>
                 </div>
 
@@ -472,3 +523,4 @@ const Profile = () => {
 };
 
 export default Profile;
+

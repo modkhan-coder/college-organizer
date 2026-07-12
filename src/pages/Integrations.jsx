@@ -1,13 +1,19 @@
 import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
 import { Link, ExternalLink, RefreshCw, Trash2, Globe, CheckCircle2, AlertCircle, Pencil, Settings2, Lock } from 'lucide-react';
 import Modal from '../components/Modal';
 import { getCanvasAuthUrl } from '../lib/lms';
+import { Browser } from '@capacitor/browser';
+import { Capacitor } from '@capacitor/core';
 
 const Integrations = () => {
-    const { user, addNotification, syncAllLMS, lmsConnections, getLMSCourses, importLMSCourse } = useApp();
+    const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const { user, addNotification, syncAllLMS, lmsConnections, getLMSCourses, importLMSCourse, syncAllLMSState } = useApp();
     const isPro = user?.plan === 'pro' || user?.plan === 'premium';
+    const [refreshKey, setRefreshKey] = useState(0);
     const [loading, setLoading] = useState(false);
     const [setupProvider, setSetupProvider] = useState(null); // 'canvas' | 'blackboard' | 'moodle'
     const [instanceUrl, setInstanceUrl] = useState('');
@@ -21,17 +27,20 @@ const Integrations = () => {
     const [importingIds, setImportingIds] = useState([]);
 
     useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('success') === 'true') {
+        if (searchParams.get('success') === 'true') {
             addNotification('LMS account connected via OAuth!', 'success');
+            // Clear the param and refresh data
+            const newParams = new URLSearchParams(searchParams);
+            newParams.delete('success');
+            setSearchParams(newParams, { replace: true });
             // Find the most recent connection and open preview
             const triggerPreview = async () => {
-                const { data } = await supabase.from('lms_connections').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).single();
+                const { data } = await supabase.from('lms_connections').select('*').eq('user_id', user?.id).order('created_at', { ascending: false }).limit(1).single();
                 if (data) handleOpenPreview(data);
             };
-            triggerPreview();
+            if (user?.id) triggerPreview();
         }
-    }, []);
+    }, [searchParams]);
 
     const handleOpenPreview = async (connection) => {
         setLoading(true);
@@ -99,7 +108,7 @@ const Integrations = () => {
             } else if (newConn) {
                 // Mock/simulation mode - show helpful message
                 addNotification('Connected in Simulation Mode! Mock courses are now available. Use "Sync Now" to see sample data.', 'info');
-                setTimeout(() => window.location.reload(), 1500);
+                setTimeout(() => setRefreshKey(k => k + 1), 1500);
             }
         } catch (error) {
             console.error('Connection failed', error);
@@ -124,11 +133,11 @@ const Integrations = () => {
             addNotification(`Error disconnecting: ${error.message}`, 'error');
         } else {
             addNotification(`${provider} disconnected successfully`, 'success');
-            window.location.reload();
+            setRefreshKey(k => k + 1);
         }
     };
 
-    const handleConnectOAuth = () => {
+    const handleConnectOAuth = async () => {
         if (!instanceUrl.trim() || !clientId.trim()) {
             if (!clientId.trim()) setShowDevSettings(true);
             return addNotification('Institution URL and Client ID are required for OAuth', 'warning');
@@ -141,7 +150,12 @@ const Integrations = () => {
         }));
 
         const authUrl = getCanvasAuthUrl(instanceUrl, clientId);
-        window.location.href = `${authUrl}&state=${state}`;
+        const fullAuthUrl = `${authUrl}&state=${state}`;
+        if (Capacitor.isNativePlatform()) {
+            await Browser.open({ url: fullAuthUrl });
+        } else {
+            window.location.href = fullAuthUrl;
+        }
     };
 
     const providers = [
@@ -243,7 +257,7 @@ const Integrations = () => {
                                             Connect {provider.name}
                                         </button>
                                     ) : (
-                                        <button className="btn" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }} onClick={() => window.location.href = '/pricing'}>
+                                        <button className="btn" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }} onClick={() => navigate('/pricing')}>
                                             <Lock size={16} style={{ marginRight: '8px', verticalAlign: 'text-bottom' }} /> Unlock with Pro
                                         </button>
                                     )
@@ -406,7 +420,7 @@ const Integrations = () => {
                         })}
                     </div>
 
-                    <button className="btn btn-primary" onClick={() => window.location.reload()} style={{ width: '100%' }}>
+                    <button className="btn btn-primary" onClick={() => { setPreviewConnection(null); setRefreshKey(k => k + 1); }} style={{ width: '100%' }}>
                         Done & Refresh App
                     </button>
                 </div>

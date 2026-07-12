@@ -321,65 +321,42 @@ const CourseDetails = () => {
                 </h1>
             </div>
 
-            {/* Tabs */}
-            <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: '24px', overflowX: 'auto' }}>
-                <TabButton id="overview" label="Overview" icon={<FileText size={18} />} activeTab={activeTab} setActiveTab={setActiveTab} />
+            {/* Tabs — each button is exactly 25% wide, cannot overflow */}
+            <div style={{ display: 'flex', width: '100%', borderBottom: '1px solid var(--border)', marginBottom: '24px' }}>
+                <TabButton id="overview" label="Overview" icon={<FileText size={16} />} activeTab={activeTab} setActiveTab={setActiveTab} />
                 <button
                     onClick={() => navigate(`/courses/${courseId}/hub`)}
                     style={{
-                        flex: 1,
-                        minWidth: '120px',
-                        padding: '16px',
-                        background: 'none',
-                        border: 'none',
+                        width: '25%', padding: '10px 2px',
+                        background: 'none', border: 'none',
                         borderBottom: '2px solid transparent',
-                        color: 'var(--text-secondary)',
-                        fontWeight: 'normal',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        transition: 'all 0.2s'
+                        color: 'var(--text-secondary)', cursor: 'pointer',
+                        display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center',
+                        gap: '3px', fontSize: '0.7rem', transition: 'all 0.2s',
                     }}
                 >
-                    <LinkIcon size={18} /> Hub
+                    <LinkIcon size={15} />
+                    <span>Hub</span>
                 </button>
-                <TabButton id="materials" label="Materials" icon={<Upload size={18} />} activeTab={activeTab} setActiveTab={setActiveTab} />
+                <TabButton id="materials" label="Files" icon={<Upload size={16} />} activeTab={activeTab} setActiveTab={setActiveTab} />
                 <button
                     onClick={() => navigate(isPremium ? `/courses/${courseId}/studio` : '/pricing')}
                     style={{
-                        flex: 1,
-                        padding: '12px 16px',
-                        background: isPremium ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'var(--bg-app)',
+                        width: '25%', padding: '10px 2px',
+                        background: isPremium ? 'linear-gradient(135deg, #667eea, #764ba2)' : 'transparent',
                         color: isPremium ? 'white' : 'var(--text-secondary)',
-                        border: isPremium ? 'none' : '1px solid var(--border)',
-
-                        fontSize: '0.95rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        fontWeight: '600',
-                        transition: 'all 0.2s',
-                        borderRadius: '4px 4px 0 0',
-                        position: 'relative'
+                        border: 'none',
+                        borderBottom: isPremium ? 'none' : '2px solid transparent',
+                        borderRadius: isPremium ? '6px 6px 0 0' : '0',
+                        fontSize: '0.7rem', fontWeight: '600', cursor: 'pointer',
+                        display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center',
+                        gap: '3px', transition: 'all 0.2s',
                     }}
                 >
-                    <Brain size={18} /> PDF Studio ✨
-                    {!isPremium && (
-                        <span style={{
-                            fontSize: '0.7rem',
-                            padding: '2px 6px',
-                            background: 'var(--primary)',
-                            color: 'white',
-                            borderRadius: '4px',
-                            fontWeight: 'bold'
-                        }}>
-                            PREMIUM
-                        </span>
-                    )}
+                    <Brain size={15} />
+                    <span>{isPremium ? 'AI Studio' : 'Studio'}</span>
                 </button>
             </div>
 
@@ -414,7 +391,7 @@ const CourseDetails = () => {
                                 <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backdropFilter: 'blur(5px)', background: 'rgba(255,255,255,0.7)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                                     <Lock color="var(--primary)" size={32} />
                                     <h3 style={{ margin: '12px 0 8px' }}>Grade Predictor Locked</h3>
-                                    <button className="btn btn-primary" onClick={() => window.location.href = '/pricing'}>Upgrade to Pro</button>
+                                    <button className="btn btn-primary" onClick={() => navigate('/pricing')}>Upgrade to Pro</button>
                                 </div>
                             )}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -540,9 +517,8 @@ const TabButton = ({ id, label, icon, activeTab, setActiveTab }) => {
         <button
             onClick={() => setActiveTab(id)}
             style={{
-                flex: 1,
-                minWidth: '120px',
-                padding: '16px',
+                width: '25%',
+                padding: '10px 2px',
                 background: 'none',
                 border: 'none',
                 borderBottom: isActive ? '2px solid var(--primary)' : '2px solid transparent',
@@ -550,13 +526,17 @@ const TabButton = ({ id, label, icon, activeTab, setActiveTab }) => {
                 fontWeight: isActive ? 'bold' : 'normal',
                 cursor: 'pointer',
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '8px',
-                transition: 'all 0.2s'
+                gap: '3px',
+                fontSize: '0.7rem',
+                transition: 'all 0.2s',
+                lineHeight: 1.2,
             }}
         >
-            {icon} {label}
+            {icon}
+            <span>{label}</span>
         </button>
     );
 }

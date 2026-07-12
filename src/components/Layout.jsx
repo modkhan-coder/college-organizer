@@ -1,17 +1,29 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Home, BookOpen, Calendar, CheckSquare, BarChart2, User, Flame, Globe, Trophy, Bell, Users, Target, CalendarRange, HelpCircle, Shield, Menu, X, MessageCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Banner from './Banner';
+import PrivacyBanner from './PrivacyBanner';
 import ToastContainer from './ToastContainer';
 import PanicModal from './PanicModal';
+import { triggerImpact, triggerSelection, triggerSuccess } from '../utils/haptics';
+import { ImpactStyle } from '@capacitor/haptics';
 import './Layout.css';
 
 const Layout = ({ children }) => {
     const location = useLocation();
-    const { appNotifications, socialNotifications } = useApp();
     const [isPanicOpen, setIsPanicOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const { appNotifications, socialNotifications } = useApp();
+
+    // FORCE UNLOCK: Ensure body is never locked
+    useEffect(() => {
+        document.body.style.overflow = 'auto';
+        document.body.style.height = 'auto';
+        document.body.style.minHeight = '100vh';
+        document.documentElement.style.overflow = 'auto';
+        document.documentElement.style.height = 'auto';
+    }, []);
 
     const navItems = [
         { id: 'nav-dashboard', icon: Home, label: 'Dashboard', path: '/dashboard' },
@@ -42,20 +54,46 @@ const Layout = ({ children }) => {
 
     return (
         <div className="app-layout">
-            {/* Mobile Header (Only visible on < 768px via CSS) */}
+
+            <main
+                className="main-content"
+                style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}
+            >
+
+                <Banner />
+                <PrivacyBanner />
+                <div className="content-container" style={{ flex: 1 }}>
+                    {children}
+                </div>
+                <ToastContainer notifications={appNotifications} />
+                <PanicModal isOpen={isPanicOpen} onClose={() => setIsPanicOpen(false)} />
+            </main>
+
+            {/* Mobile Header Moved to End for stacking priority */}
             <div className="mobile-header">
-                <button className="menu-btn" onClick={() => setIsMobileMenuOpen(true)}>
+                <button
+                    className="menu-btn"
+                    onClick={() => {
+                        setIsMobileMenuOpen(prev => !prev);
+                    }}
+                    style={{
+                        position: 'relative',
+                        zIndex: 10000,
+                        pointerEvents: 'auto'
+                    }}
+                >
                     <Menu size={24} />
                 </button>
                 <h2>College Org</h2>
-                <div style={{ width: 24 }}></div> {/* Spacer for center alignment */}
+                <div style={{ width: 24 }}></div>
             </div>
 
-            {/* Mobile Overlay */}
+            {/* Mobile Overlay - Moved to end for stacking priority */}
             {isMobileMenuOpen && (
                 <div className="mobile-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>
             )}
 
+            {/* Sidebar Moved to End for stacking priority */}
             <aside className={`sidebar ${isMobileMenuOpen ? 'open' : ''}`}>
                 <div className="sidebar-header">
                     <h2>College Org</h2>
@@ -67,7 +105,10 @@ const Layout = ({ children }) => {
                 <button
                     id="btn-panic"
                     className="panic-button-trigger"
-                    onClick={() => setIsPanicOpen(true)}
+                    onClick={() => {
+                        triggerImpact(ImpactStyle.Heavy);
+                        setIsPanicOpen(true);
+                    }}
                     style={{
                         margin: '0 20px 20px 20px',
                         display: 'flex',
@@ -94,7 +135,10 @@ const Layout = ({ children }) => {
                             id={item.id}
                             to={item.path}
                             className={`nav-item ${isActive(item.path) ? 'active' : ''}`}
-                            onClick={() => setIsMobileMenuOpen(false)}
+                            onClick={() => {
+                                triggerSelection();
+                                setIsMobileMenuOpen(false);
+                            }}
                         >
                             <item.icon size={20} />
                             <span>{item.label}</span>
@@ -130,14 +174,6 @@ const Layout = ({ children }) => {
                     </Link>
                 </nav>
             </aside>
-            <main className="main-content" style={{ display: 'flex', flexDirection: 'column' }}>
-                <Banner />
-                <div className="content-container" style={{ flex: 1 }}>
-                    {children}
-                </div>
-                <ToastContainer notifications={appNotifications} />
-                <PanicModal isOpen={isPanicOpen} onClose={() => setIsPanicOpen(false)} />
-            </main>
         </div>
     );
 };

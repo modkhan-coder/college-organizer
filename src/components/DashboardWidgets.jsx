@@ -43,7 +43,7 @@ export const ProgressWidget = ({ userStats, tasksDoneToday, dailyGoal, setIsShar
 const StatCard = ({ icon, label, value, color, bg }) => (
     <div className="card stat-card-hover" style={{
         display: 'flex', alignItems: 'center', gap: '20px', padding: '24px',
-        transition: 'transform 0.2s ease, box-shadow 0.2s ease', cursor: 'grab'
+        transition: 'transform 0.2s ease, box-shadow 0.2s ease'
     }}>
         <div style={{
             width: '56px', height: '56px', borderRadius: '16px',

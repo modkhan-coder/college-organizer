@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { calculateCourseGrade, getLetterGrade } from '../utils/gradeCalculator';
 import { Calculator, Share2, Lock } from 'lucide-react';
@@ -6,6 +7,7 @@ import ShareableCard from '../components/ShareableCard';
 import Modal from '../components/Modal';
 
 const GPA = () => {
+    const navigate = useNavigate();
     const { courses, assignments, user } = useApp();
     const isPro = user?.plan === 'pro' || user?.plan === 'premium';
     const [targetGrade, setTargetGrade] = useState(90);
@@ -152,7 +154,7 @@ const GPA = () => {
                         <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backdropFilter: 'blur(5px)', background: 'rgba(255,255,255,0.7)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                             <Lock color="var(--primary)" size={32} />
                             <h3 style={{ margin: '12px 0 8px' }}>Grade Forecaster Locked</h3>
-                            <button className="btn btn-primary" onClick={() => window.location.href = '/pricing'}>Upgrade to Pro</button>
+                            <button className="btn btn-primary" onClick={() => navigate('/pricing')}>Upgrade to Pro</button>
                         </div>
                     )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>

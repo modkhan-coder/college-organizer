@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { User, School, BookOpen, GraduationCap, ArrowRight } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 const Onboarding = () => {
     const { user, saveUser, addNotification } = useApp();
@@ -9,7 +10,7 @@ const Onboarding = () => {
         name: user?.name || '',
         school: user?.school || '',
         major: user?.major || '',
-        gpaScale: user?.gpaScale || '4.0'
+        gpaScale: user?.settings?.gpaScale || '4.0'
     });
 
     const [loading, setLoading] = useState(false);
@@ -27,8 +28,14 @@ const Onboarding = () => {
             await saveUser({
                 ...user,
                 ...formData,
-                // Ensure profile is marked as 'started' implicitly by having these fields
+                onboardingComplete: true
             });
+
+            // ALSO save to Account Metadata for instant recognition during login
+            await supabase.auth.updateUser({
+                data: { onboarding_completed: true }
+            });
+
             addNotification('Profile Created! Welcome aboard 🚀', 'success');
             // App.jsx will automatically re-render and remove this screen once user updates
         } catch (error) {
@@ -46,7 +53,7 @@ const Onboarding = () => {
             alignItems: 'center',
             justifyContent: 'center',
             background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
-            padding: '20px'
+            padding: 'calc(env(safe-area-inset-top) + 20px) 20px calc(env(safe-area-inset-bottom) + 20px) 20px'
         }}>
             <div className="card" style={{ maxWidth: '480px', width: '100%', padding: '40px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)' }}>
                 <div style={{ textAlign: 'center', marginBottom: '32px' }}>
@@ -77,6 +84,8 @@ const Onboarding = () => {
                             placeholder="e.g. Alex Smith"
                             value={formData.name}
                             onChange={e => setFormData({ ...formData, name: e.target.value })}
+                            autoComplete="name"
+                            enterKeyHint="next"
                             required
                         />
                     </div>
@@ -90,6 +99,9 @@ const Onboarding = () => {
                             placeholder="e.g. Stanford University"
                             value={formData.school}
                             onChange={e => setFormData({ ...formData, school: e.target.value })}
+                            autoComplete="organization"
+                            autoCapitalize="words"
+                            enterKeyHint="next"
                             required
                         />
                     </div>
@@ -103,6 +115,8 @@ const Onboarding = () => {
                             placeholder="e.g. Computer Science"
                             value={formData.major}
                             onChange={e => setFormData({ ...formData, major: e.target.value })}
+                            autoCapitalize="words"
+                            enterKeyHint="done"
                             required
                         />
                     </div>

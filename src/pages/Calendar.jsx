@@ -138,38 +138,41 @@ const Calendar = () => {
     };
 
     return (
-        <div style={{ height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 100px)' }}>
+            {/* Header — stacks on mobile */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
                 <h1 className="page-title" style={{ margin: 0 }}>Calendar</h1>
-                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                    <button className="btn btn-secondary" onClick={() => setIsSyncModalOpen(true)} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
+                    <button className="btn btn-secondary" onClick={() => setIsSyncModalOpen(true)} style={{ display: 'flex', gap: '6px', alignItems: 'center', minHeight: '44px' }}>
                         <CalIcon size={18} /> Sync
                     </button>
+                    {/* Prev / Today / Next */}
                     <div style={{ display: 'flex', background: 'var(--bg-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
                         <button
                             onClick={prevPeriod}
-                            style={{ padding: '8px', background: 'none', border: 'none', cursor: 'pointer', borderRight: '1px solid var(--border)' }}
+                            style={{ padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', borderRight: '1px solid var(--border)', minHeight: '44px' }}
                         >
                             <ChevronLeft size={20} />
                         </button>
                         <button
                             onClick={goToToday}
-                            style={{ padding: '8px 16px', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}
+                            style={{ padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600', minHeight: '44px' }}
                         >
                             Today
                         </button>
                         <button
                             onClick={nextPeriod}
-                            style={{ padding: '8px', background: 'none', border: 'none', cursor: 'pointer', borderLeft: '1px solid var(--border)' }}
+                            style={{ padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', borderLeft: '1px solid var(--border)', minHeight: '44px' }}
                         >
                             <ChevronRight size={20} />
                         </button>
                     </div>
+                    {/* Week / Month toggle */}
                     <div style={{ display: 'flex', background: 'var(--bg-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', overflow: 'hidden' }}>
                         <button
                             onClick={() => setView('week')}
                             style={{
-                                padding: '8px 16px', border: 'none', cursor: 'pointer',
+                                padding: '10px 16px', border: 'none', cursor: 'pointer', minHeight: '44px',
                                 background: view === 'week' ? 'var(--primary)' : 'transparent',
                                 color: view === 'week' ? 'white' : 'var(--text-main)'
                             }}
@@ -179,7 +182,7 @@ const Calendar = () => {
                         <button
                             onClick={() => setView('month')}
                             style={{
-                                padding: '8px 16px', border: 'none', cursor: 'pointer',
+                                padding: '10px 16px', border: 'none', cursor: 'pointer', minHeight: '44px',
                                 background: view === 'month' ? 'var(--primary)' : 'transparent',
                                 color: view === 'month' ? 'white' : 'var(--text-main)'
                             }}
@@ -192,64 +195,69 @@ const Calendar = () => {
 
             {/* Calendar Grid */}
             <div className="card" style={{ flex: 1, padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ padding: '16px', borderBottom: '1px solid var(--border)', fontWeight: 'bold', fontSize: '1.2rem', textAlign: 'center' }}>
+                <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', fontWeight: 'bold', fontSize: '1.1rem', textAlign: 'center' }}>
                     {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                 </div>
 
                 {view === 'week' ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', flex: 1, overflowY: 'auto' }}>
-                        {Array.from({ length: 7 }).map((_, idx) => {
-                            const date = new Date(startOfWeek);
-                            date.setDate(date.getDate() + idx);
-                            const isTodayDate = isToday(date.toISOString().split('T')[0]);
-                            const events = getEventsForDate(date);
+                    /* Week view: horizontally scrollable so mobile doesn't crush 7 columns */
+                    <div style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(120px, 1fr))', height: '100%', minWidth: '840px' }}>
+                            {Array.from({ length: 7 }).map((_, idx) => {
+                                const date = new Date(startOfWeek);
+                                date.setDate(date.getDate() + idx);
+                                const isTodayDate = isToday(date.toISOString().split('T')[0]);
+                                const events = getEventsForDate(date);
 
-                            return (
-                                <div key={idx} style={{ borderRight: idx < 6 ? '1px solid var(--border)' : 'none', minHeight: '200px', display: 'flex', flexDirection: 'column' }}>
-                                    <div style={{
-                                        padding: '12px', borderBottom: '1px solid var(--border)', textAlign: 'center',
-                                        background: isTodayDate ? 'rgba(99, 102, 241, 0.1)' : 'transparent'
-                                    }}>
-                                        <div style={{ fontSize: '0.85rem', color: isTodayDate ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: 'bold', textTransform: 'uppercase' }}>
-                                            {date.toLocaleDateString('en-US', { weekday: 'short' })}
-                                        </div>
+                                return (
+                                    <div key={idx} style={{ borderRight: idx < 6 ? '1px solid var(--border)' : 'none', minHeight: '200px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
                                         <div style={{
-                                            fontSize: '1.5rem', fontWeight: 'bold',
-                                            width: '36px', height: '36px', lineHeight: '36px',
-                                            margin: '4px auto 0', borderRadius: '50%',
-                                            background: isTodayDate ? 'var(--primary)' : 'transparent',
-                                            color: isTodayDate ? 'white' : 'inherit'
+                                            padding: '12px', borderBottom: '1px solid var(--border)', textAlign: 'center',
+                                            background: isTodayDate ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
+                                            position: 'sticky', top: 0, zIndex: 1, backdropFilter: 'blur(4px)'
                                         }}>
-                                            {date.getDate()}
+                                            <div style={{ fontSize: '0.85rem', color: isTodayDate ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                                                {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                                            </div>
+                                            <div style={{
+                                                fontSize: '1.4rem', fontWeight: 'bold',
+                                                width: '36px', height: '36px', lineHeight: '36px',
+                                                margin: '4px auto 0', borderRadius: '50%',
+                                                background: isTodayDate ? 'var(--primary)' : 'transparent',
+                                                color: isTodayDate ? 'white' : 'inherit'
+                                            }}>
+                                                {date.getDate()}
+                                            </div>
+                                        </div>
+                                        <div style={{ padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, background: isTodayDate ? 'rgba(99, 102, 241, 0.02)' : 'transparent' }}>
+                                            {events.map((ev, i) => (
+                                                <div key={i} style={{
+                                                    background: ev.type === 'class' ? 'var(--bg-app)' : ev.color,
+                                                    color: ev.type === 'class' ? 'var(--text-main)' : 'white',
+                                                    borderLeft: ev.type === 'class' ? `4px solid ${ev.color}` : 'none',
+                                                    borderRadius: '6px', padding: '8px', fontSize: '0.8rem',
+                                                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                                }}>
+                                                    <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>{ev.title}</div>
+                                                    {ev.time && (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: 0.9, fontSize: '0.75rem' }}>
+                                                            <Clock size={10} /> {ev.time}
+                                                        </div>
+                                                    )}
+                                                    {ev.location && (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: 0.7, fontSize: '0.75rem', marginTop: '2px' }}>
+                                                            <MapPin size={10} /> {ev.location}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
-                                    <div style={{ padding: '8px', display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, background: isTodayDate ? 'rgba(99, 102, 241, 0.02)' : 'transparent' }}>
-                                        {events.map((ev, i) => (
-                                            <div key={i} style={{
-                                                background: ev.type === 'class' ? 'var(--bg-app)' : ev.color,
-                                                color: ev.type === 'class' ? 'var(--text-main)' : 'white',
-                                                borderLeft: ev.type === 'class' ? `4px solid ${ev.color}` : 'none',
-                                                borderRadius: '6px', padding: '8px', fontSize: '0.8rem',
-                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                                            }}>
-                                                <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>{ev.title}</div>
-                                                {ev.time && (
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: 0.9, fontSize: '0.75rem' }}>
-                                                        <Clock size={10} /> {ev.time}
-                                                    </div>
-                                                )}
-                                                {ev.location && (
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: 0.7, fontSize: '0.75rem', marginTop: '2px' }}>
-                                                        <MapPin size={10} /> {ev.location}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
                     </div>
+
                 ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', flex: 1 }}>
                         {/* Headers */}

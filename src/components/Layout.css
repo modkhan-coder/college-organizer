@@ -1,14 +1,25 @@
+/* ============================================================
+   LAYOUT — College Organizer
+   ============================================================ */
+
+/* ── App shell ── */
 .app-layout {
-    display: flex;
     min-height: 100vh;
     background-color: var(--bg-app);
+    overflow-x: hidden;
+    display: block;
+    /* NO transform here — CSS transform on a parent creates a new
+       containing block and breaks position:fixed on all children.
+       The mobile header would scroll with the page instead of staying
+       pinned. GPU acceleration is applied per-element where needed. */
 }
 
+/* ── Mobile header — hidden on desktop ── */
 .mobile-header {
     display: none;
-    /* Hidden by default on desktop */
 }
 
+/* ── Desktop sidebar ── */
 .sidebar {
     width: 250px;
     background-color: var(--bg-sidebar);
@@ -43,7 +54,6 @@
     flex-direction: column;
     padding: var(--space-md);
     padding-bottom: 250px;
-    /* Extra space for bottom items */
     gap: var(--space-xs);
     flex: 1;
     overflow-y: auto;
@@ -70,10 +80,10 @@
     color: white;
 }
 
+/* ── Desktop main content ── */
 .main-content {
     flex: 1;
     margin-left: 250px;
-    /* Width of sidebar */
     padding: var(--space-xl);
     max-width: 1400px;
 }
@@ -82,24 +92,40 @@
     width: 100%;
 }
 
-@media (max-width: 768px) {
+/* ── Close button (desktop — hidden) ── */
+.close-menu-btn {
+    display: none;
+}
 
-    /* Mobile Header - Visible only on mobile */
+/* ============================================================
+   MOBILE — max-width: 1100px
+   ============================================================ */
+@media (max-width: 1100px) {
+
+    /* ── Mobile Header — pinned to top of viewport ── */
     .mobile-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
         padding: 16px 20px;
+        padding-top: calc(16px + env(safe-area-inset-top));
         background-color: var(--bg-sidebar);
         color: white;
+
+        /* Key: position fixed so it never scrolls with content */
         position: fixed;
-        /* Fixed instead of sticky */
         top: 0;
         left: 0;
         right: 0;
-        z-index: 900;
+        z-index: 2000;      /* above all page content and the sidebar */
+
         border-bottom: 1px solid var(--border);
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+
+        /* translateZ(0) promotes this element to its own compositor layer
+           so it paints independently from scrolling content */
+        -webkit-transform: translateZ(0);
+        transform: translateZ(0);
     }
 
     .mobile-header h2 {
@@ -113,75 +139,83 @@
         color: white;
         cursor: pointer;
         padding: 4px;
+        min-height: 44px;
+        min-width: 44px;
         display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
-    /* Sidebar - Mobile Drawer Style */
+    /* ── Sidebar — mobile drawer ── */
     .sidebar {
         width: 280px;
-        /* Slightly wider for ease of use */
-        transform: translateX(-100%);
-        /* Hidden by default */
+        transform: translateX(-100%);       /* hidden off-screen left */
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        z-index: 1000;
-        /* Above everything */
+        will-change: transform;             /* GPU layer for the slide animation */
+        z-index: 3000;                      /* above the fixed header */
         box-shadow: 4px 0 16px rgba(0, 0, 0, 0.5);
         position: fixed;
-        /* Ensure fixed */
         top: 0;
         left: 0;
         height: 100vh;
         overflow-y: auto;
-        /* Ensure vertical scrolling */
-        overscroll-behavior: contain;
-        /* Prevent scroll chaining to body */
+        overscroll-behavior: contain;       /* prevent scroll chaining to body */
         -webkit-overflow-scrolling: touch;
-        /* Smooth scrolling on iOS */
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        visibility: hidden;                 /* prevent interaction when closed */
+        pointer-events: none;
     }
 
     .sidebar.open {
         transform: translateX(0);
-        /* Slide in */
+        visibility: visible;
+        pointer-events: auto;
     }
 
-    /* Close button inside sidebar */
+    /* ── Close button inside drawer ── */
     .close-menu-btn {
+        display: flex;
         background: none;
         border: none;
         color: rgba(255, 255, 255, 0.7);
         cursor: pointer;
         margin-left: auto;
-        /* Push to right */
-        display: flex;
         padding: 4px;
+        min-height: 44px;
+        min-width: 44px;
+        align-items: center;
+        justify-content: center;
     }
 
     .sidebar-header h2 {
         display: block;
-        /* Show title again inside drawer */
     }
 
     .nav-item span {
         display: inline;
-        /* Show labels again */
     }
 
     .nav-item {
         justify-content: flex-start;
-        /* Reset alignment */
-        padding: 12px 16px;
+        padding: 14px 16px;         /* 44px+ touch target height */
+        min-height: 44px;
     }
 
-    /* Main Content - Full Width */
+    /* ── Main content — offset below fixed header ── */
     .main-content {
         margin-left: 0;
-        margin-top: 60px;
-        /* Spacer for fixed header */
+        margin-top: calc(85px + env(safe-area-inset-top));
         padding: var(--space-md);
         width: 100%;
+        min-height: calc(100vh - 70px);
+        display: block !important;
+        overflow-y: visible !important;
+        /* touch-action NOT set — allows both pan-y and pan-x to work
+           (Calendar week swipe, Help pill nav horizontal scroll) */
     }
 
-    /* Overlay - Dim background */
+    /* ── Dim overlay when drawer is open ── */
     .mobile-overlay {
         position: fixed;
         top: 0;
@@ -189,19 +223,46 @@
         right: 0;
         bottom: 0;
         background-color: rgba(0, 0, 0, 0.6);
-        z-index: 999;
-        /* Below sidebar, above content */
+        z-index: 2500;              /* above header (2000), below sidebar (3000) */
         backdrop-filter: blur(2px);
-        animation: fadeIn 0.3s ease;
     }
 }
 
+/* ── Global scroll fix ── */
+html,
+body {
+    /* overflow-x: hidden removed from body — on iOS WKWebView this clips
+       child overflow-x:auto containers (like the course tab bar), preventing
+       horizontal scrolling inside them. Use overflow-x: hidden on html only. */
+    overflow-x: hidden;
+    overflow-y: auto !important;
+    height: auto !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+html {
+    overflow-x: hidden;
+}
+
 @keyframes fadeIn {
-    from {
-        opacity: 0;
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* ============================================================
+   LANDSCAPE PHONE — compact the fixed header bar
+   ============================================================ */
+@media (max-height: 500px) and (min-width: 480px) {
+    .mobile-header {
+        padding: 4px 12px !important;
+        padding-top: calc(4px + env(safe-area-inset-top)) !important;
     }
 
-    to {
-        opacity: 1;
+    .mobile-header h2 {
+        font-size: 1rem !important;
+    }
+
+    .main-content {
+        margin-top: calc(44px + env(safe-area-inset-top)) !important;
     }
 }

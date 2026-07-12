@@ -1,4 +1,36 @@
-/* Basic resets if not covered by DesignSystem, but usually safer to have */
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  /* touch-action intentionally NOT set here — setting pan-y globally blocks
+     horizontal scroll on the Calendar week view and Help pill nav.
+     Individual scrollable containers set their own touch-action. */
+  -webkit-user-select: none;
+  /* Prevent text selection from blocking scroll */
+  user-select: none;
+  /* will-change: transform removed from * — applying GPU layers to every
+     element exhausts mobile GPU memory. Applied only to animated elements. */
+}
+
+/* Re-enable selection for inputs and content areas */
+input,
+textarea,
+[contenteditable="true"],
+.selectable {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
 }

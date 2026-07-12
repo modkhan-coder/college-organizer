@@ -1,5 +1,8 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useApp } from './context/AppContext';
+import { useEffect } from 'react';
+import { setPushNavigate } from './utils/push';
 import Layout from './components/Layout';
 import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
@@ -33,19 +36,27 @@ import LandingPage from './pages/LandingPage';
 import RequireAuth from './components/RequireAuth';
 import PaymentSync from './components/PaymentSync';
 
+
 function App() {
-  const { user, loading } = useApp();
+  const { user, loading, courses, assignments } = useApp();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Register navigate with push notification handler for deep-link taps
+  useEffect(() => {
+    setPushNavigate(navigate);
+  }, [navigate]);
 
   if (loading) {
     return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--text-secondary)' }}>Loading...</div>;
   }
 
-  // FORCE ONBOARDING: Check if profile is complete (only if user logged in)
-  if (user) {
-    const isProfileComplete = user.school && user.major;
-    if (!isProfileComplete) {
-      return <Onboarding />;
-    }
+  // FORCE ONBOARDING: Check account metadata, context state, OR local cache fallback
+  const localProfile = JSON.parse(localStorage.getItem('cached_student_profile') || '{}');
+  const isSetupDone = user?.user_metadata?.onboarding_completed || user?.onboardingComplete || localProfile.onboardingComplete;
+
+  if (user && !loading && !isSetupDone) {
+    return <Onboarding />;
   }
 
   return (

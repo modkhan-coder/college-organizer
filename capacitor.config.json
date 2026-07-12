@@ -1,0 +1,11 @@
+{
+  "appId": "com.collegeorganizer.app",
+  "appName": "College Organizer",
+  "webDir": "dist",
+  "server": {
+    "allowNavigation": [
+      "checkout.stripe.com",
+      "billing.stripe.com"
+    ]
+  }
+}

@@ -3,6 +3,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../lib/supabase';
 import { fetchLMSCourses, fetchLMSAssignments, fetchLMSGrading, fetchLMSGradingScale, mapLMSCourseToApp, mapLMSAssignmentToApp } from '../lib/lms';
 import { calculateCourseGrade } from '../utils/gradeCalculator';
+import { setupPushNotifications } from '../utils/push';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 
 const AppContext = createContext();
 
@@ -126,6 +129,51 @@ export const AppProvider = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Initialize Native Features
+  useEffect(() => {
+    if (user?.id) {
+      setupPushNotifications(
+        (token) => {
+          // Token generated - save to Supabase
+          supabase.from('profiles').update({ push_token: token }).eq('id', user.id)
+            .then(({ error }) => error && console.error('Error saving push token:', error));
+        },
+        (notification) => {
+          // Notification received - can show a custom toast or alert
+          if (typeof addNotification === 'function') {
+            addNotification(`${notification.title}: ${notification.body}`, 'info');
+          }
+        }
+      );
+    }
+  }, [user?.id]);
+
+  // Listen for native in-app browser close events to refresh user status
+  useEffect(() => {
+    if (!user?.id || !Capacitor.isNativePlatform()) return;
+
+    let listener = null;
+    const initListener = async () => {
+      try {
+        listener = await Browser.addListener('browserFinished', () => {
+          console.log('[AppContext] In-app browser finished, reloading user data...');
+          loadSupabaseData(user.id);
+          window.dispatchEvent(new Event('refetch-user'));
+        });
+      } catch (e) {
+        console.error('[AppContext] Failed to add browserFinished listener:', e);
+      }
+    };
+
+    initListener();
+
+    return () => {
+      if (listener) {
+        listener.remove();
+      }
+    };
+  }, [user?.id]);
+
   useEffect(() => {
     if (!user?.id) return;
 
@@ -172,8 +220,9 @@ export const AppProvider = ({ children }) => {
     return () => window.removeEventListener('refetch-user', handleRefetchUser);
   }, [user?.id]);
 
-  const loadSupabaseData = async (currentUser) => {
-    const userId = currentUser.id;
+  const loadSupabaseData = async (userOrId) => {
+    const userId = typeof userOrId === 'string' ? userOrId : userOrId?.id;
+    if (!userId) return;
     setLoading(true);
 
     try {
@@ -200,26 +249,39 @@ export const AppProvider = ({ children }) => {
       }
 
       if (profRes.data) {
-        if (currentUser?.email && profRes.data.email !== currentUser.email) {
-          await supabase.from('profiles').update({ email: currentUser.email }).eq('id', userId);
-          profRes.data.email = currentUser.email;
+        const sessionUser = typeof userOrId === 'object' ? userOrId : null;
+        if (sessionUser?.email && profRes.data.email !== sessionUser.email) {
+          await supabase.from('profiles').update({ email: sessionUser.email }).eq('id', userId);
+          profRes.data.email = sessionUser.email;
         }
-        setUser(prev => ({
+        const mergedUser = {
           ...prev,
           ...profRes.data,
-          email: currentUser?.email || profRes.data.email || prev.email,
+          name: profRes.data.name || profRes.data.display_name || sessionUser?.user_metadata?.full_name || prev.name,
+          email: sessionUser?.email || profRes.data.email || prev.email,
           settings: { ...(prev?.settings || {}), ...(profRes.data.settings || {}) },
-          gpaScale: profRes.data.settings?.gpaScale || profRes.data.gpa_scale || '4.0'
+          gpaScale: profRes.data.settings?.gpaScale || profRes.data.gpa_scale || '4.0',
+          onboardingComplete: profRes.data.settings?.onboardingComplete || false
+        };
+
+        // Mobile Hardening: Backup to LocalStorage
+        localStorage.setItem('cached_student_profile', JSON.stringify({
+          name: mergedUser.name,
+          school: mergedUser.school,
+          onboardingComplete: mergedUser.onboardingComplete
         }));
-      } else if (currentUser) {
+
+        setUser(prev => mergedUser);
+      } else if (typeof userOrId === 'object' && userOrId !== null) {
+        const sessionUser = userOrId;
         // Create profile if missing
         const { error: createErr } = await supabase.from('profiles').insert([{
           id: userId,
-          email: currentUser.email,
-          display_name: currentUser.user_metadata?.full_name || currentUser.email.split('@')[0],
-          avatar_url: currentUser.user_metadata?.avatar_url
+          email: sessionUser.email,
+          display_name: sessionUser.user_metadata?.full_name || sessionUser.email.split('@')[0],
+          avatar_url: sessionUser.user_metadata?.avatar_url
         }]);
-        if (!createErr) setUser(prev => ({ ...prev, email: currentUser.email }));
+        if (!createErr) setUser(prev => ({ ...prev, email: sessionUser.email }));
       }
 
       // 2. Core Data (Courses, Assignments, Tasks)
@@ -334,16 +396,28 @@ export const AppProvider = ({ children }) => {
   // --- Persistence Wrappers ---
   const saveUser = async (userData) => {
     // If gpaScale is provided top-level, ensure it's synced to settings for persistence fallback
-    const settings = { ...(userData.settings || {}), gpaScale: userData.gpaScale || userData.settings?.gpaScale || '4.0' };
-    const finalUserData = { ...userData, settings };
+    const settings = {
+      ...(userData.settings || {}),
+      gpaScale: userData.gpaScale || userData.settings?.gpaScale || '4.0',
+      onboardingComplete: userData.onboardingComplete || userData.settings?.onboardingComplete || false
+    };
+    const finalUserData = { ...userData, settings, onboardingComplete: settings.onboardingComplete };
 
     setUser(finalUserData);
+
+    // Mobile Identity Backup: Ensure name/school are cached locally for zero-latency Dashboard
+    localStorage.setItem('cached_student_profile', JSON.stringify({
+      name: finalUserData.name,
+      school: finalUserData.school,
+      onboardingComplete: finalUserData.onboardingComplete
+    }));
     if (!finalUserData.id) return;
 
     // Upsert profile
     const { error } = await supabase.from('profiles').upsert({
       id: finalUserData.id,
       name: finalUserData.name,
+      display_name: finalUserData.name || finalUserData.display_name,
       school: finalUserData.school,
       major: finalUserData.major,
       settings: finalUserData.settings,
@@ -355,6 +429,25 @@ export const AppProvider = ({ children }) => {
     if (error) {
       addNotification(`Error saving profile: ${error.message}`, 'error');
     }
+  };
+
+  const acknowledgePrivacy = async () => {
+    if (!user) return;
+    const newSettings = {
+      ...(user.settings || {}),
+      privacy_acknowledged: true,
+      data_sharing_enabled: user.settings?.data_sharing_enabled ?? true
+    };
+    await saveUser({ ...user, settings: newSettings });
+  };
+
+  const updatePrivacySettings = async (dataSharingEnabled) => {
+    if (!user) return;
+    const newSettings = {
+      ...(user.settings || {}),
+      data_sharing_enabled: dataSharingEnabled
+    };
+    await saveUser({ ...user, settings: newSettings });
   };
 
   const addCourse = async (course) => {
@@ -798,7 +891,10 @@ export const AppProvider = ({ children }) => {
             lmsId: dataA.lms_id,
             lmsSource: dataA.lms_source,
             lmsStatus: dataA.lms_status,
-            pointsEarned: dataA.points_earned
+            pointsPossible: dataA.points_possible,
+            pointsEarned: dataA.points_earned,
+            dueDate: dataA.due_date,
+            categoryId: dataA.category_id
           });
         }
       }
@@ -873,7 +969,7 @@ export const AppProvider = ({ children }) => {
                     user_id: user.id,
                     course_id: course.id,
                     title: newAssign.title,
-                    due_date: newAssign.dueDate,
+                    due_date: la.due_date, // Already normalized by lms.js
                     points_possible: newAssign.pointsPossible,
                     points_earned: la.points_earned, // Use score from LMS
                     category_id: newAssign.categoryId,
@@ -888,13 +984,17 @@ export const AppProvider = ({ children }) => {
                     lmsId: data.lms_id,
                     lmsSource: data.lms_source,
                     lmsStatus: data.lms_status,
-                    pointsEarned: data.points_earned
+                    pointsPossible: data.points_possible,
+                    pointsEarned: data.points_earned,
+                    dueDate: data.due_date,
+                    categoryId: data.category_id
                   }]);
                 } else {
                   // Update existing
                   const targetCat = course.categories?.find(cat => cat.id === String(la.assignment_group_id)) || course.categories?.[0];
+                  const normDate = la.due_date || null;
                   const dbUpdate = {
-                    due_date: la.due_date,
+                    due_date: normDate,
                     points_possible: la.points_possible,
                     points_earned: la.points_earned,
                     lms_status: la.lms_status,
@@ -903,7 +1003,7 @@ export const AppProvider = ({ children }) => {
                   await supabase.from('assignments').update(dbUpdate).eq('id', assign.id);
                   setAssignments(prev => prev.map(a => a.id === assign.id ? {
                     ...a,
-                    dueDate: la.due_date,
+                    dueDate: normDate,
                     pointsPossible: la.points_possible,
                     pointsEarned: la.points_earned,
                     lmsStatus: la.lms_status,
@@ -932,8 +1032,8 @@ export const AppProvider = ({ children }) => {
       }
 
       addNotification('LMS Sync process finished', 'success');
-      // Reload all data to ensure consistency
-      loadSupabaseData(user.id);
+      // Reload all data to ensure consistency and proper mapping
+      await loadSupabaseData(user);
     } catch (error) {
       console.error('LMS Sync critical error:', error);
       addNotification('LMS Sync failed critically. Check console.', 'error');
@@ -1378,7 +1478,9 @@ export const AppProvider = ({ children }) => {
         details
       }]);
       if (!error) addNotification('Report submitted. Thank you for keeping us safe.', 'success');
-    }
+    },
+    acknowledgePrivacy,
+    updatePrivacySettings
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

@@ -311,8 +311,11 @@ serve(async (req) => {
         const amount = prices[plan as keyof typeof prices]?.[interval as 'monthly' | 'yearly']
         if (!amount) throw new Error(`Invalid plan ${plan}`)
 
-        // Construct dynamic URLs
-        const origin = req.headers.get('origin') || 'https://www.collegeorganizer.org'
+        // Construct dynamic URLs - FORCE HTTPS for mobile to avoid Safari "Invalid Address"
+        let origin = req.headers.get('origin') || 'https://www.collegeorganizer.org'
+        if (origin.startsWith('capacitor://')) {
+            origin = 'https://www.collegeorganizer.org'
+        }
         const successUrl = new URL(returnPath, origin)
         successUrl.searchParams.set('success', 'true')
         successUrl.searchParams.set('session_id', '{CHECKOUT_SESSION_ID}')

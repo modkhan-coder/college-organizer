@@ -1,0 +1,24 @@
+# Robots.txt for College Organizer
+# https://www.collegeorganizer.org
+
+User-agent: *
+
+# Allow all public pages
+Allow: /
+Allow: /pricing
+Allow: /guide
+
+# Disallow protected/authenticated routes
+Disallow: /dashboard
+Disallow: /courses
+Disallow: /assignments
+Disallow: /focus
+Disallow: /social
+Disallow: /profile
+Disallow: /admin
+Disallow: /auth
+Disallow: /success
+Disallow: /cancel
+
+# Sitemap location
+Sitemap: https://www.collegeorganizer.org/sitemap.xml

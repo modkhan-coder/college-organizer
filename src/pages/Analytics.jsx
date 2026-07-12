@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { calculateCourseGrade } from '../utils/gradeCalculator';
 import { BarChart2, Clock, CheckCircle, TrendingUp, Calendar as CalendarIcon, AlertCircle, Lock } from 'lucide-react';
@@ -7,6 +8,7 @@ import {
 } from 'recharts';
 
 const Analytics = () => {
+    const navigate = useNavigate();
     const { courses, assignments, tasks, user } = useApp();
     const isPro = user?.plan === 'pro' || user?.plan === 'premium';
 
@@ -135,7 +137,7 @@ const Analytics = () => {
                         <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backdropFilter: 'blur(5px)', background: 'rgba(255,255,255,0.7)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                             <Lock color="#8b5cf6" size={32} />
                             <h3 style={{ margin: '12px 0 8px' }}>Trends Locked</h3>
-                            <button className="btn btn-primary" onClick={() => window.location.href = '/pricing'}>Upgrade to Pro</button>
+                            <button className="btn btn-primary" onClick={() => navigate('/pricing')}>Upgrade to Pro</button>
                         </div>
                     )}
                     <div style={{ marginBottom: '20px' }}>
@@ -224,7 +226,7 @@ const Analytics = () => {
                         <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backdropFilter: 'blur(5px)', background: 'rgba(255,255,255,0.7)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                             <Lock color="#f59e0b" size={32} />
                             <h3 style={{ margin: '12px 0 8px' }}>Study Forecast Locked</h3>
-                            <button className="btn btn-primary" onClick={() => window.location.href = '/pricing'}>Upgrade to Pro</button>
+                            <button className="btn btn-primary" onClick={() => navigate('/pricing')}>Upgrade to Pro</button>
                         </div>
                     )}
                     <div style={{ marginBottom: '20px' }}>

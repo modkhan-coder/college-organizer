@@ -1,4 +1,7 @@
-/* Mobile Polish */
+/* ============================================
+   MOBILE POLISH — College Organizer
+   Applies to screens ≤ 768px (phones)
+   ============================================ */
 
 /* Prevent iOS text size adjust */
 html {
@@ -10,9 +13,9 @@ html {
     -webkit-tap-highlight-color: transparent;
 }
 
-/* 
-  Prevent auto-zoom on iOS when focusing inputs 
-  (iOS zooms if font-size < 16px) 
+/*
+  Prevent auto-zoom on iOS when focusing inputs
+  (iOS zooms in if font-size < 16px)
 */
 @media screen and (max-width: 768px) {
 
@@ -24,7 +27,7 @@ html {
     }
 }
 
-/* Smoother scrolling on iOS */
+/* Smoother momentum scrolling on iOS */
 body {
     -webkit-overflow-scrolling: touch;
 }
@@ -35,4 +38,141 @@ a,
 .clickable {
     user-select: none;
     -webkit-user-select: none;
+}
+
+/* ============================================
+   COURSE TAB BAR
+   Overview | Hub | Materials | PDF Studio
+   ============================================ */
+
+/* Desktop: natural flex row */
+.course-tab-bar {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.course-tab-bar::-webkit-scrollbar {
+    display: none;
+}
+
+/* Mobile: force all 4 tabs to equal width, all visible without scroll */
+@media screen and (max-width: 768px) {
+    .course-tab-bar {
+        overflow-x: visible;    /* no need to scroll — all fit */
+    }
+
+    /* Every direct child tab button */
+    .course-tab-bar > button {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        padding: 10px 4px !important;
+        font-size: 0.72rem !important;
+        white-space: normal !important;
+        flex-direction: column !important;
+        gap: 4px !important;
+        line-height: 1.2 !important;
+    }
+
+    /* Hide the PRO / PREMIUM badge on mobile — no room */
+    .course-tab-bar > button span[style*="background: var(--primary)"] {
+        display: none !important;
+    }
+}
+
+
+/* ============================================
+   RESPONSIVE GRID FIXES
+   Pages use inline style grids — we override
+   them here with a mobile media query.
+   ============================================ */
+
+@media screen and (max-width: 768px) {
+
+    /* ── Known desktop multi-column grids — collapse to 1 col on mobile ── */
+    /* GPA page: minmax(300px, 2fr) minmax(300px, 1fr) */
+    div[style*="minmax(300px, 2fr)"] {
+        grid-template-columns: 1fr !important;
+    }
+    /* Courses page: repeat(auto-fill, minmax(350px, 1fr)) */
+    div[style*="minmax(350px, 1fr)"] {
+        grid-template-columns: 1fr !important;
+    }
+    /* Dashboard / Profile: repeat(auto-fit, minmax(300px, 1fr)) */
+    div[style*="minmax(300px, 1fr)"] {
+        grid-template-columns: 1fr !important;
+    }
+    /* CourseHub: 1fr 1fr two-column layout */
+    div[style*="gridTemplateColumns: '1fr 1fr'"] {
+        grid-template-columns: 1fr !important;
+    }
+    /* Analytics grid */
+    div[style*="1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* ── Card padding — tighter on small screens ── */
+    .card {
+        padding: 16px !important;
+    }
+
+    /* ── Page title spacing ── */
+    .page-title {
+        font-size: 1.5rem !important;
+        margin-bottom: 16px !important;
+    }
+
+    /* ── Tables: make horizontally scrollable ── */
+    table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+    }
+
+    /* ── Flex rows that overflow: wrap instead of clip ── */
+    div[style*="display: flex"][style*="gap"] {
+        flex-wrap: wrap;
+    }
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+/* Horizontal scroll container — use on any wide content */
+.scroll-x {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    /* Hide scrollbar on iOS for clean look */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.scroll-x::-webkit-scrollbar {
+    display: none;
+}
+
+/* Vertical scroll container with momentum */
+.scroll-y {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Stack children vertically on mobile */
+@media screen and (max-width: 768px) {
+    .mobile-stack {
+        flex-direction: column !important;
+    }
+    .mobile-full-width {
+        width: 100% !important;
+        min-width: unset !important;
+        max-width: 100% !important;
+    }
+    .mobile-hide {
+        display: none !important;
+    }
 }

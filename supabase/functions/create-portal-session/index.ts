@@ -79,8 +79,11 @@ serve(async (req) => {
 
         console.log(`[PORTAL] Customer ID: ${customerId}`)
 
-        // Create Portal Session
-        const origin = req.headers.get('origin') || 'https://www.collegeorganizer.org'
+        // Create Portal Session - FORCE HTTPS for mobile to avoid Safari "Invalid Address"
+        let origin = req.headers.get('origin') || 'https://www.collegeorganizer.org'
+        if (origin.startsWith('capacitor://')) {
+            origin = 'https://www.collegeorganizer.org'
+        }
         const returnUrl = new URL(returnPath, origin).toString()
 
         console.log(`[PORTAL] Creating portal session for ${customerId}, return to ${returnUrl}`)

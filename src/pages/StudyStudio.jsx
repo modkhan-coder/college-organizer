@@ -692,32 +692,33 @@ const StudyStudio = () => {
     return (
         <div className="studio-container">
             {/* Header */}
-            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)' }}>
-                <button onClick={() => navigate(`/courses/${courseId}`)} className="btn btn-secondary" style={{ marginBottom: '12px' }}>
-                    <ArrowLeft size={16} /> Back to Course
+            <div className="studio-header-landscape-compact" style={{ padding: '12px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+                <button onClick={() => navigate(`/courses/${courseId}`)} className="btn btn-secondary" style={{ marginBottom: '8px', padding: '6px 12px', fontSize: '0.85rem' }}>
+                    <ArrowLeft size={14} /> Back to Course
                 </button>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                     <div>
                         <h1 className="page-title">PDF Study Studio</h1>
-                        <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>{course.name}</p>
+                        <p style={{ color: 'var(--text-secondary)', marginTop: '2px', fontSize: '0.9rem' }}>{course.name}</p>
                     </div>
 
                     {/* Credits Display */}
-                    <div style={{
+                    <div className="studio-header-credits" style={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: '8px',
-                        padding: '12px 20px',
+                        padding: '10px 16px',
                         background: pdfCredits > 10 ? 'var(--primary-light)' : (pdfCredits > 5 ? '#fef3c7' : '#fee2e2'),
                         borderRadius: '12px',
-                        border: `2px solid ${pdfCredits > 10 ? 'var(--primary)' : (pdfCredits > 5 ? '#f59e0b' : '#ef4444')}`
+                        border: `2px solid ${pdfCredits > 10 ? 'var(--primary)' : (pdfCredits > 5 ? '#f59e0b' : '#ef4444')}`,
+                        flexShrink: 0,
                     }}>
-                        <Brain size={20} style={{ color: pdfCredits > 10 ? 'var(--primary)' : (pdfCredits > 5 ? '#f59e0b' : '#ef4444') }} />
+                        <Brain size={18} style={{ color: pdfCredits > 10 ? 'var(--primary)' : (pdfCredits > 5 ? '#f59e0b' : '#ef4444') }} />
                         <div>
-                            <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: pdfCredits > 10 ? 'var(--primary)' : (pdfCredits > 5 ? '#92400e' : '#991b1b') }}>
+                            <div style={{ fontWeight: 'bold', fontSize: '1rem', color: pdfCredits > 10 ? 'var(--primary)' : (pdfCredits > 5 ? '#92400e' : '#991b1b') }}>
                                 {pdfCredits} Credits
                             </div>
-                            <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>
+                            <div style={{ fontSize: '0.7rem', opacity: 0.8 }}>
                                 Resets {creditsResetAt ? new Date(creditsResetAt).toLocaleDateString() : 'monthly'}
                             </div>
                         </div>

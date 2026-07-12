@@ -1,4 +1,4 @@
-import { Shield, Lock, Eye, Database, Server } from 'lucide-react';
+import { Shield, Lock, Eye, Database, Server, Share2, Globe, ExternalLink } from 'lucide-react';
 
 const Privacy = () => {
     return (
@@ -52,8 +52,54 @@ const Privacy = () => {
                             <h2 style={{ marginTop: 0, marginBottom: '12px' }}>Transparency & Control</h2>
                             <p style={{ lineHeight: '1.6', color: 'var(--text-secondary)' }}>
                                 You own your data. We do not sell your personal information to third parties.
-                                You can request a full export of your data or permanently delete your account at any time from the Settings page.
+                                You can manage your data, privacy, and security settings directly from your Profile.
+                                You have the right to request a full export of your data or permanently delete your account at any time.
                             </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Section 4: Third-Party Partners & Ad Settings */}
+                <div className="card" style={{ padding: '32px' }}>
+                    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+                        <div style={{ padding: '12px', background: 'var(--bg-app)', borderRadius: '12px', color: 'var(--info)' }}>
+                            <Share2 size={32} />
+                        </div>
+                        <div>
+                            <h2 style={{ marginTop: 0, marginBottom: '12px' }}>Partner Data & Advertising</h2>
+                            <p style={{ lineHeight: '1.6', color: 'var(--text-secondary)' }}>
+                                We partner with industry leaders to provide essential services:
+                            </p>
+                            <ul style={{ color: 'var(--text-secondary)', marginTop: '12px', paddingLeft: '20px', lineHeight: '1.8' }}>
+                                <li><strong>Stripe:</strong> Secure payment processing and subscription management.</li>
+                                <li><strong>Supabase (Google Cloud):</strong> Encrypted database storage and authentication.</li>
+                                <li><strong>Google Partners:</strong> Used for analytics and specialized ad performance measurement.</li>
+                            </ul>
+                            <p style={{ lineHeight: '1.6', color: 'var(--text-secondary)', marginTop: '12px' }}>
+                                You can choose whether to provide additional information to advertising partners through your <strong>Partner Ad Settings</strong> in the Profile section.
+                                This data helps our partners select which ads to show and measure their performance.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Section 5: Global Standards */}
+                <div className="card" style={{ padding: '32px' }}>
+                    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+                        <div style={{ padding: '12px', background: 'var(--bg-app)', borderRadius: '12px', color: 'var(--accent)' }}>
+                            <Globe size={32} />
+                        </div>
+                        <div>
+                            <h2 style={{ marginTop: 0, marginBottom: '12px' }}>My Data Center</h2>
+                            <p style={{ lineHeight: '1.6', color: 'var(--text-secondary)' }}>
+                                We are building a centralized dashboard to make it easy to manage your data privacy.
+                                Currently, you can access these tools:
+                            </p>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '16px' }}>
+                                <div style={{ padding: '8px 16px', background: 'var(--bg-app)', borderRadius: 'var(--radius-full)', fontSize: '0.85rem' }}>Privacy Checkup</div>
+                                <div style={{ padding: '8px 16px', background: 'var(--bg-app)', borderRadius: 'var(--radius-full)', fontSize: '0.85rem' }}>Ad Center</div>
+                                <div style={{ padding: '8px 16px', background: 'var(--bg-app)', borderRadius: 'var(--radius-full)', fontSize: '0.85rem' }}>Security Dashboard</div>
+                            </div>
                         </div>
                     </div>
                 </div>

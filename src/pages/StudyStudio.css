@@ -1,8 +1,7 @@
 .studio-container {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 80px);
-    /* Adjust based on navbar height */
+    height: calc(100vh - 85px - env(safe-area-inset-top));
     overflow: hidden;
     position: relative;
     width: 100%;
@@ -12,6 +11,7 @@
     display: grid;
     grid-template-columns: 250px 1fr 400px;
     flex: 1;
+    min-height: 0; /* critical — lets flex children shrink below content size */
     overflow: hidden;
 }
 
@@ -19,6 +19,7 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    min-height: 0;
 }
 
 .studio-files {
@@ -32,16 +33,17 @@
     flex: 1;
     display: flex;
     flex-direction: column;
+    min-height: 0;
 }
 
 .studio-tools {
     border-left: 1px solid var(--border);
     background: var(--bg-surface);
+    overflow-y: auto;
 }
 
 .studio-mobile-nav {
     display: none;
-    /* Hidden on desktop */
 }
 
 /* Tablet / Small Laptop - Shrink tools */
@@ -55,38 +57,35 @@
 @media (max-width: 1024px) {
     .studio-content {
         grid-template-columns: 0px 1fr 350px;
-        /* Hide files by default or make drawer */
     }
 
     .studio-files {
         display: none;
-        /* For now, or implement drawer toggle */
     }
-
-    /* If we want a drawer, we'd need extra logic. 
-       For this fix, we'll stick to a simpler mobile-like approach for tablets 
-       if the user forces it, but let's just optimize for Mobile Phone first. */
 }
 
-/* Mobile Phone Styles */
+/* ============================================================
+   PORTRAIT MOBILE (≤768px wide)
+   ============================================================ */
 @media (max-width: 768px) {
     .studio-container {
-        height: calc(100vh - 120px);
-        /* Adjust for header + mobile nav bar */
+        height: calc(100vh - 85px - env(safe-area-inset-top));
     }
 
     .studio-content {
         display: flex;
         flex-direction: column;
         width: 100%;
-        height: 100%;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
     }
 
     .studio-panel {
         display: none;
-        /* Hide all by default */
         width: 100%;
-        height: 100%;
+        flex: 1;
+        min-height: 0;
         border: none;
     }
 
@@ -99,11 +98,11 @@
         display: flex;
         align-items: center;
         justify-content: space-around;
-        height: 60px;
+        height: 56px;
+        min-height: 56px;
+        flex-shrink: 0;
         background: var(--bg-surface);
         border-top: 1px solid var(--border);
-        /* position: fixed; bottom: 0; left: 0; right: 0; */
-        /* Flex positioning handles it now */
         z-index: 90;
     }
 
@@ -117,8 +116,8 @@
         background: none;
         border: none;
         color: var(--text-secondary);
-        font-size: 0.75rem;
-        gap: 4px;
+        font-size: 0.72rem;
+        gap: 3px;
         cursor: pointer;
     }
 
@@ -126,17 +125,140 @@
         color: var(--primary);
     }
 
-    /* Adjust PDF Viewer for mobile */
     .studio-viewer {
-        width: 100vw;
+        width: 100%;
     }
 
-    /* Adjust Tools for mobile */
     .studio-tools {
-        width: 100vw;
+        width: 100%;
     }
 
     .page-title {
-        font-size: 1.2rem;
+        font-size: 1.1rem;
+    }
+
+    /* Compact studio header on portrait mobile */
+    .studio-header-credits {
+        padding: 6px 12px !important;
+        font-size: 0.8rem !important;
+    }
+}
+
+/* ============================================================
+   LANDSCAPE PHONE (short viewport, wide screen)
+   iPhone landscape viewport heights:
+     iPhone SE: ~320px, iPhone 14/15: ~365px, iPhone Pro Max: ~393px
+   We trigger at max-height: 500px to catch all phones.
+   ============================================================ */
+@media (max-height: 500px) and (min-width: 480px) {
+
+    /* The mobile-header is compacted to ~44px + safe-area in landscape (Layout.css). */
+    .studio-container {
+        height: calc(100vh - 44px - env(safe-area-inset-top)) !important;
+        overflow: hidden !important;
+    }
+
+    /* 2-column side-by-side: viewer | tools — no files panel */
+    .studio-content {
+        display: grid !important;
+        grid-template-columns: 1fr 280px !important;
+        flex-direction: unset !important;
+        overflow: hidden !important;
+        flex: 1 !important;
+        min-height: 0 !important;
+    }
+
+    /* Override the portrait-mobile "display:none" on panels */
+    .studio-panel {
+        display: flex !important;
+        width: auto !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    /* Files panel stays hidden — no room */
+    .studio-files {
+        display: none !important;
+    }
+
+    /* Viewer fills remaining space */
+    .studio-viewer {
+        flex: 1 !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    /* Tools panel — scrollable */
+    .studio-tools {
+        overflow-y: auto !important;
+        min-height: 0 !important;
+        border-left: 1px solid var(--border) !important;
+    }
+
+    /* ── Compact header: single row, no Back button ── */
+    .studio-header-landscape-compact {
+        padding: 4px 12px !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Hide the Back button in landscape to save precious vertical space */
+    .studio-header-landscape-compact .btn-secondary {
+        display: none !important;
+    }
+
+    .studio-header-landscape-compact .page-title {
+        font-size: 0.85rem !important;
+        margin: 0 !important;
+        line-height: 1.2 !important;
+    }
+
+    /* Hide course subtitle */
+    .studio-header-landscape-compact p {
+        display: none !important;
+    }
+
+    /* Credits badge — minimal */
+    .studio-header-credits {
+        padding: 3px 8px !important;
+        font-size: 0.7rem !important;
+        border-radius: 8px !important;
+        gap: 4px !important;
+    }
+
+    .studio-header-credits svg {
+        width: 12px !important;
+        height: 12px !important;
+    }
+
+    .studio-header-credits > div > div:last-child {
+        display: none !important; /* hide "Resets..." line */
+    }
+
+    /* Hide the mobile bottom tab nav — not needed in 2-panel landscape */
+    .studio-mobile-nav {
+        display: none !important;
+    }
+
+    /* Scope/page-range bar — more compact */
+    .studio-viewer > div:first-child {
+        padding: 4px 8px !important;
+        gap: 6px !important;
+    }
+
+    /* Tool tab headers — smaller */
+    .studio-tools > div:first-child {
+        min-height: 0 !important;
+    }
+
+    .studio-tools > div:first-child button {
+        padding: 4px 6px !important;
+        font-size: 0.7rem !important;
+        gap: 2px !important;
+    }
+
+    /* Chat min-height override — don't force 300px in landscape */
+    .studio-tools [style*="minHeight: '300px'"],
+    .studio-tools [style*="min-height: 300px"] {
+        min-height: 0 !important;
     }
 }

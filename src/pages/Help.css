@@ -91,18 +91,24 @@
     .help-sidebar {
         width: 100%;
         overflow-x: auto;
-        padding: 0 16px;
+        overflow-y: hidden;
+        padding: 8px 16px;
         white-space: nowrap;
         display: flex;
         gap: 8px;
-        padding-bottom: 8px;
-        /* Scrollbar space */
         background: var(--bg-surface);
         position: sticky;
-        top: 60px;
-        /* Below mobile header */
+        top: calc(60px + env(safe-area-inset-top));
+        /* Align with new Layout header height */
         z-index: 10;
         border-bottom: 1px solid var(--border);
+        /* Hide scrollbar for cleaner native look */
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .help-sidebar::-webkit-scrollbar {
+        display: none;
     }
 
     .help-sidebar .card {
@@ -123,10 +129,14 @@
         border-left: none;
         border-bottom: 2px solid transparent;
         border-radius: 20px;
-        padding: 8px 16px;
+        padding: 10px 16px;
+        min-height: 44px;
         background: var(--bg-app);
         flex-shrink: 0;
         font-size: 0.9rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
     }
 
     .help-nav-btn.active {

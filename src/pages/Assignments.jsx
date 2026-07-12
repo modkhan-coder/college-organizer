@@ -122,14 +122,28 @@ const AssignmentForm = ({ isOpen, onClose, initialData, courses, onSubmit }) => 
     const [pointsPossible, setPointsPossible] = useState('100');
     const [pointsEarned, setPointsEarned] = useState('');
 
-    // Load initial data
+    // Normalize date to YYYY-MM-DD for the date input
+    const normalizeDate = (dateStr) => {
+        if (!dateStr) return '';
+        // If it's already YYYY-MM-DD, return as-is
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+        // Otherwise parse and convert (handles ISO timestamps like 2026-02-11T23:59:00Z)
+        try {
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return '';
+            return d.toISOString().split('T')[0];
+        } catch {
+            return '';
+        }
+    };
+
     // Load initial data
     useEffect(() => {
         if (isOpen && initialData) {
             setTitle(initialData.title);
             setCourseId(initialData.courseId);
             setCategoryId(initialData.categoryId);
-            setDueDate(initialData.dueDate);
+            setDueDate(normalizeDate(initialData.dueDate));
             setPointsPossible(initialData.pointsPossible);
             setPointsEarned(initialData.pointsEarned || '');
         } else if (isOpen) {

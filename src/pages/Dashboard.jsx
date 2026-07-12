@@ -27,7 +27,7 @@ const SortableWidget = ({ id, children }) => {
         transition,
         zIndex: isDragging ? 10 : 1,
         opacity: isDragging ? 0.8 : 1,
-        touchAction: 'none' // Required for pointer sensor on mobile sometimes, but we handle via sensors
+        touchAction: 'auto'
     };
 
     return (
@@ -51,11 +51,8 @@ const Dashboard = () => {
         return initial;
     });
 
-    // Sensors (Enable drag on touch/mouse but allow clicks)
-    const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-    );
+    // Sensors (Disabled to prioritize fluid scrolling on mobile)
+    const sensors = useSensors();
 
     // Data Prep
     const insights = generateSmartInsights();
@@ -108,18 +105,21 @@ const Dashboard = () => {
 
     const courseGrades = courses.map(course => ({ ...course, grade: calculateCourseGrade(course, assignments) }));
 
-    const handleDragEnd = (event) => {
-        const { active, over } = event;
-        if (active.id !== over.id) {
-            setLayout((items) => {
-                const oldIndex = items.indexOf(active.id);
-                const newIndex = items.indexOf(over.id);
-                const newLayout = arrayMove(items, oldIndex, newIndex);
-                localStorage.setItem('dashboard-layout', JSON.stringify(newLayout));
-                return newLayout;
-            });
+    // SAFE IDENTITY DERIVATION (iPhone 16 Hardening)
+    const getStudentIdentity = () => {
+        try {
+            const localData = JSON.parse(localStorage.getItem('cached_student_profile') || '{}');
+            const name = user?.name || user?.display_name || localData.name || 'Student';
+            const school = user?.school || localData.school || '';
+            const firstName = (typeof name === 'string' ? name : 'Student').split(' ')[0];
+            return { firstName, school };
+        } catch (e) {
+            console.error('Identity sync error:', e);
+            return { firstName: 'Student', school: '' };
         }
     };
+
+    const { firstName, school: displaySchool } = getStudentIdentity();
 
     if (!user) return <div style={{ textAlign: 'center', padding: '48px' }}>Loading...</div>;
 
@@ -137,14 +137,14 @@ const Dashboard = () => {
     };
 
     return (
-        <div className={survivalMode ? 'survival-theme' : ''} style={{ transition: 'all 0.4s ease', minHeight: '100%', paddingBottom: '40px' }}>
+        <div className={survivalMode ? 'survival-theme' : ''} style={{ transition: 'all 0.4s ease', minHeight: '100%', paddingBottom: '40px', paddingTop: '10px' }}>
             {/* Header (Not Draggable) */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <div>
-                    <h1 className="page-title">Hello, {(user.name || 'Student').split(' ')[0]} 👋 </h1>
-                    {user.school && (
+                    <h1 className="page-title">Hello, {firstName} 👋</h1>
+                    {displaySchool && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--primary)', fontWeight: '600', marginBottom: '8px', fontSize: '0.95rem' }}>
-                            <span>🏫</span> {user.school}
+                            <span>🏫</span> {displaySchool}
                         </div>
                     )}
                     <p style={{ color: 'var(--text-secondary)' }}>
@@ -195,17 +195,19 @@ const Dashboard = () => {
 
             {/* Static Grid Layout (Drag Disabled) */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
-                {layout.map(id => (
-                    <div key={id} style={{ height: '100%' }}>
-                        {renderWidget(id)}
-                    </div>
-                ))}
+                <TasksWidget openItems={openItems} />
+                <GradesWidget courseGrades={courseGrades} />
+                <InsightsWidget survivalMode={survivalMode} survivalPlan={survivalPlan} insights={insights} addNotification={addNotification} />
             </div>
 
             {/* Share Modal */}
             <Modal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} title="Share Your Progress">
                 <ShareableCard type="streak" data={{ streak: userStats.current_streak, tasks: tasksDoneToday }} user={user} />
             </Modal>
+
+            <div style={{ textAlign: 'center', marginTop: '40px', fontSize: '0.7rem', color: 'rgba(0,0,0,0.1)' }}>
+                v1.0.12 - Identity Lock Active
+            </div>
 
             <style>{`
                 .survival-theme {

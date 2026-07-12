@@ -3,6 +3,8 @@ import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
 import { Check, X, CreditCard, Star, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Browser } from '@capacitor/browser';
+import { Capacitor } from '@capacitor/core';
 
 const PricingPage = ({ isModal = false, onClose }) => {
     const { user, saveUser, addNotification } = useApp();
@@ -19,6 +21,14 @@ const PricingPage = ({ isModal = false, onClose }) => {
     const handleManageBilling = async () => {
         setProcessingPlan('portal');
         try {
+            // FORCE SESSION REFRESH: Ensure token is fresh before calling Edge Function
+            const { data: sessionData } = await supabase.auth.getSession();
+            if (!sessionData.session) {
+                addNotification('Session expired. Please log in again.', 'error');
+                navigate('/login');
+                return;
+            }
+
             // Determine return path based on current location
             const currentPath = window.location.pathname;
             const returnPath = currentPath === '/pricing' ? '/profile' : currentPath;
@@ -31,7 +41,11 @@ const PricingPage = ({ isModal = false, onClose }) => {
 
             if (error) throw error;
             if (data?.url) {
-                window.location.href = data.url;
+                if (Capacitor.isNativePlatform()) {
+                    await Browser.open({ url: data.url });
+                } else {
+                    window.location.href = data.url;
+                }
             } else {
                 throw new Error('No portal URL received');
             }
@@ -51,6 +65,14 @@ const PricingPage = ({ isModal = false, onClose }) => {
 
         setProcessingPlan(plan);
         try {
+            // FORCE SESSION REFRESH: Ensure token is fresh before calling Edge Function
+            const { data: sessionData } = await supabase.auth.getSession();
+            if (!sessionData.session) {
+                addNotification('Session expired. Please log in again.', 'error');
+                navigate('/login');
+                return;
+            }
+
             // Determine return path based on current location
             const currentPath = window.location.pathname;
             const returnPath = currentPath === '/pricing' ? '/profile' : currentPath;
@@ -119,7 +141,11 @@ const PricingPage = ({ isModal = false, onClose }) => {
             }
 
             if (data?.url) {
-                window.location.href = data.url;
+                if (Capacitor.isNativePlatform()) {
+                    await Browser.open({ url: data.url });
+                } else {
+                    window.location.href = data.url;
+                }
             } else {
                 throw new Error('No checkout URL received');
             }
@@ -154,13 +180,15 @@ const PricingPage = ({ isModal = false, onClose }) => {
                     onClick={onClose}
                     style={{
                         position: 'absolute',
-                        top: '-20px',
+                        top: window.innerWidth <= 768 ? '10px' : '-20px',
                         right: '0',
-                        background: 'none',
+                        background: 'rgba(0,0,0,0.1)',
                         border: 'none',
                         cursor: 'pointer',
                         color: 'var(--text-secondary)',
-                        padding: '10px'
+                        padding: '10px',
+                        borderRadius: '50%',
+                        zIndex: 10
                     }}
                 >
                     <X size={24} />
@@ -323,6 +351,7 @@ const PricingPage = ({ isModal = false, onClose }) => {
     );
 
     if (isModal) {
+        const isMobile = window.innerWidth <= 768;
         return (
             <div
                 style={{
@@ -331,13 +360,13 @@ const PricingPage = ({ isModal = false, onClose }) => {
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    background: 'rgba(0,0,0,0.5)',
+                    background: 'rgba(0,0,0,0.8)',
                     display: 'flex',
-                    alignItems: 'center',
+                    alignItems: isMobile ? 'flex-end' : 'center',
                     justifyContent: 'center',
-                    zIndex: 2000,
-                    padding: '24px',
-                    backdropFilter: 'blur(4px)'
+                    zIndex: 3000,
+                    backdropFilter: 'blur(8px)',
+                    padding: isMobile ? '0' : '24px'
                 }}
                 onClick={(e) => {
                     if (e.target === e.currentTarget && onClose) onClose();
@@ -347,13 +376,15 @@ const PricingPage = ({ isModal = false, onClose }) => {
                     style={{
                         background: 'var(--bg-app)',
                         width: '100%',
-                        maxWidth: '1100px',
-                        maxHeight: '90vh',
+                        maxWidth: isMobile ? '100%' : '1100px',
+                        height: isMobile ? '100%' : 'auto',
+                        maxHeight: isMobile ? '100%' : '90vh',
                         overflowY: 'auto',
-                        borderRadius: 'var(--radius-lg)',
-                        padding: '40px 24px',
+                        borderRadius: isMobile ? '0' : 'var(--radius-lg)',
+                        padding: isMobile ? `calc(40px + env(safe-area-inset-top)) 24px 80px` : '40px 24px',
                         boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
-                        position: 'relative'
+                        position: 'relative',
+                        WebkitOverflowScrolling: 'touch'
                     }}
                     onClick={e => e.stopPropagation()}
                 >

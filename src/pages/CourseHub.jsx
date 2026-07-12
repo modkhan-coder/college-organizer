@@ -222,107 +222,66 @@ const CourseHub = () => {
                 </div>
             </div>
 
-            {/* Tabs - matching CourseDetails */}
-            <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: '24px', overflowX: 'auto' }}>
+            {/* Tabs — each button is exactly 25% wide, cannot overflow */}
+            <div style={{ display: 'flex', width: '100%', borderBottom: '1px solid var(--border)', marginBottom: '24px' }}>
                 <button
                     onClick={() => navigate(`/courses/${courseId}`)}
                     style={{
-                        flex: 1,
-                        minWidth: '120px',
-                        padding: '16px',
-                        background: 'none',
-                        border: 'none',
-                        borderBottom: '2px solid transparent',
-                        color: 'var(--text-secondary)',
-                        fontWeight: 'normal',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        transition: 'all 0.2s'
+                        width: '25%', padding: '10px 2px', background: 'none',
+                        border: 'none', borderBottom: '2px solid transparent',
+                        color: 'var(--text-secondary)', cursor: 'pointer',
+                        display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center',
+                        gap: '3px', fontSize: '0.7rem', transition: 'all 0.2s',
                     }}
                 >
-                    <FileText size={18} /> Overview
+                    <FileText size={15} /><span>Overview</span>
                 </button>
                 <button
                     style={{
-                        flex: 1,
-                        minWidth: '120px',
-                        padding: '16px',
-                        background: 'none',
-                        border: 'none',
-                        borderBottom: '2px solid var(--primary)',
-                        color: 'var(--primary)',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        transition: 'all 0.2s'
+                        width: '25%', padding: '10px 2px', background: 'none',
+                        border: 'none', borderBottom: '2px solid var(--primary)',
+                        color: 'var(--primary)', fontWeight: 'bold', cursor: 'pointer',
+                        display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center',
+                        gap: '3px', fontSize: '0.7rem', transition: 'all 0.2s',
                     }}
                 >
-                    <LinkIcon size={18} /> Hub
+                    <LinkIcon size={15} /><span>Hub</span>
                 </button>
                 <button
                     onClick={() => navigate(`/courses/${courseId}`, { state: { tab: 'materials' } })}
                     style={{
-                        flex: 1,
-                        minWidth: '120px',
-                        padding: '16px',
-                        background: 'none',
-                        border: 'none',
-                        borderBottom: '2px solid transparent',
-                        color: 'var(--text-secondary)',
-                        fontWeight: 'normal',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        transition: 'all 0.2s'
+                        width: '25%', padding: '10px 2px', background: 'none',
+                        border: 'none', borderBottom: '2px solid transparent',
+                        color: 'var(--text-secondary)', cursor: 'pointer',
+                        display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center',
+                        gap: '3px', fontSize: '0.7rem', transition: 'all 0.2s',
                     }}
                 >
-                    <Upload size={18} /> Materials
+                    <Upload size={15} /><span>Files</span>
                 </button>
                 <button
                     onClick={() => navigate(isPremium ? `/courses/${courseId}/studio` : '/pricing')}
                     style={{
-                        flex: 1,
-                        padding: '12px 16px',
-                        background: isPremium ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'var(--bg-app)',
+                        width: '25%', padding: '10px 2px',
+                        background: isPremium ? 'linear-gradient(135deg, #667eea, #764ba2)' : 'transparent',
                         color: isPremium ? 'white' : 'var(--text-secondary)',
-                        border: isPremium ? 'none' : '1px solid var(--border)',
-                        fontSize: '0.95rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        fontWeight: '600',
-                        transition: 'all 0.2s',
-                        borderRadius: '4px 4px 0 0',
-                        position: 'relative'
+                        border: 'none',
+                        borderRadius: isPremium ? '6px 6px 0 0' : '0',
+                        fontSize: '0.7rem', fontWeight: '600', cursor: 'pointer',
+                        display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center',
+                        gap: '3px', transition: 'all 0.2s',
                     }}
                 >
-                    <Brain size={18} /> PDF Studio ✨
-                    {!isPremium && (
-                        <span style={{
-                            fontSize: '0.7rem',
-                            padding: '2px 6px',
-                            background: 'var(--primary)',
-                            color: 'white',
-                            borderRadius: '4px',
-                            fontWeight: 'bold'
-                        }}>
-                            PREMIUM
-                        </span>
-                    )}
+                    <Brain size={15} /><span>{isPremium ? 'AI Studio' : 'Studio'}</span>
                 </button>
             </div>
 
             {/* Quick Actions */}
+
             <div className="card" style={{ padding: '16px', marginBottom: '24px' }}>
                 <h3 style={{ margin: '0 0 16px' }}>⚡ Quick Actions</h3>
 
