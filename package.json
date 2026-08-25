@@ -1,7 +1,7 @@
 {
   "name": "college-organizer",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor-community/apple-sign-in": "^7.1.0",
     "@capacitor/android": "^8.3.1",
     "@capacitor/assets": "^3.0.5",
     "@capacitor/browser": "^8.0.3",
@@ -22,6 +23,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@supabase/supabase-js": "^2.91.0",
+    "cordova-plugin-purchase": "^13.18.0",
     "driver.js": "^1.4.0",
     "framer-motion": "^12.29.0",
     "html-to-image": "^1.11.13",
