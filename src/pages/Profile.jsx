@@ -10,6 +10,7 @@ import PricingPage from './PricingPage';
 import { triggerSuccess } from '../utils/haptics';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
+import { isIAPAvailable, restorePurchases, openSubscriptionManagement } from '../utils/iapService';
 
 const Profile = () => {
     const {
@@ -22,6 +23,8 @@ const Profile = () => {
     const [showPricingModal, setShowPricingModal] = useState(false);
     const [processingBilling, setProcessingBilling] = useState(false);
     const navigate = useNavigate();
+
+    const isIOS = Capacitor.getPlatform() === 'ios' && Capacitor.isNativePlatform();
 
     // Payment verification is now handled globally by PaymentSync
 
@@ -263,8 +266,55 @@ const Profile = () => {
                             >
                                 {user.plan?.toUpperCase() || 'FREE'} {user?.subscription_status === 'canceling' ? '(CANCELLING)' : 'PLAN'} &rarr;
                             </button>
+                            {isIOS && (
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            await restorePurchases();
+                                            addNotification('Purchases restored!', 'success');
+                                        } catch (err) {
+                                            addNotification(`Failed to restore: ${err.message}`, 'error');
+                                        }
+                                    }}
+                                    style={{
+                                        fontSize: '0.75rem',
+                                        background: 'transparent',
+                                        color: 'var(--text-secondary)',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        border: '1px solid var(--border)',
+                                        cursor: 'pointer',
+                                        marginTop: '4px',
+                                        marginLeft: '8px',
+                                        display: 'inline-block'
+                                    }}
+                                >
+                                    Restore Purchases
+                                </button>
+                            )}
                             {/* Manage Billing Button - only for paid users */}
-                            {isPro && user?.stripe_customer_id && (
+                            {isPro && (isIOS && user?.payment_provider === 'apple' ? (
+                                <button
+                                    onClick={openSubscriptionManagement}
+                                    style={{
+                                        fontSize: '0.75rem',
+                                        background: 'transparent',
+                                        color: 'var(--primary)',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        border: '1px solid var(--primary)',
+                                        cursor: 'pointer',
+                                        marginTop: '4px',
+                                        marginLeft: '8px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                    }}
+                                >
+                                    <CreditCard size={12} />
+                                    Manage Subscription
+                                </button>
+                            ) : user?.stripe_customer_id ? (
                                 <button
                                     onClick={handleManageBilling}
                                     disabled={processingBilling}
@@ -286,7 +336,7 @@ const Profile = () => {
                                     <CreditCard size={12} />
                                     {processingBilling ? 'Loading...' : 'Manage Billing'}
                                 </button>
-                            )}
+                            ) : null)}
                         </div>
                     </div>
 

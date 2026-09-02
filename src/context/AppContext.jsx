@@ -132,6 +132,11 @@ export const AppProvider = ({ children }) => {
   // Initialize Native Features
   useEffect(() => {
     if (user?.id) {
+      // Initialize IAP (iOS only)
+      import('../utils/iapService').then(({ initializeIAP }) => {
+        initializeIAP().catch(err => console.error('[IAP] Init failed:', err));
+      });
+
       setupPushNotifications(
         (token) => {
           // Token generated - save to Supabase
@@ -216,8 +221,22 @@ export const AppProvider = ({ children }) => {
       }
     };
 
+    // Instant plan update from IAP (no database round-trip needed)
+    const handleIAPPlanUpdate = (event) => {
+      const { plan } = event.detail || {};
+      if (plan) {
+        console.log('[AppContext] IAP instant plan update:', plan);
+        setUser(prev => ({ ...prev, plan, subscription_status: 'active', payment_provider: 'apple' }));
+        addNotification(`Plan updated to ${plan.toUpperCase()}! 🎉`, 'success');
+      }
+    };
+
     window.addEventListener('refetch-user', handleRefetchUser);
-    return () => window.removeEventListener('refetch-user', handleRefetchUser);
+    window.addEventListener('iap-plan-updated', handleIAPPlanUpdate);
+    return () => {
+      window.removeEventListener('refetch-user', handleRefetchUser);
+      window.removeEventListener('iap-plan-updated', handleIAPPlanUpdate);
+    };
   }, [user?.id]);
 
   const loadSupabaseData = async (userOrId) => {
@@ -255,11 +274,10 @@ export const AppProvider = ({ children }) => {
           profRes.data.email = sessionUser.email;
         }
         const mergedUser = {
-          ...prev,
           ...profRes.data,
-          name: profRes.data.name || profRes.data.display_name || sessionUser?.user_metadata?.full_name || prev.name,
-          email: sessionUser?.email || profRes.data.email || prev.email,
-          settings: { ...(prev?.settings || {}), ...(profRes.data.settings || {}) },
+          name: profRes.data.name || profRes.data.display_name || sessionUser?.user_metadata?.full_name || '',
+          email: sessionUser?.email || profRes.data.email || '',
+          settings: { ...(profRes.data.settings || {}) },
           gpaScale: profRes.data.settings?.gpaScale || profRes.data.gpa_scale || '4.0',
           onboardingComplete: profRes.data.settings?.onboardingComplete || false
         };
@@ -271,7 +289,7 @@ export const AppProvider = ({ children }) => {
           onboardingComplete: mergedUser.onboardingComplete
         }));
 
-        setUser(prev => mergedUser);
+        setUser(prev => ({ ...(prev || {}), ...mergedUser }));
       } else if (typeof userOrId === 'object' && userOrId !== null) {
         const sessionUser = userOrId;
         // Create profile if missing
@@ -453,6 +471,18 @@ export const AppProvider = ({ children }) => {
   const addCourse = async (course) => {
     if (!checkLimit('courses')) { addNotification('Free Plan Limit Reached: Max 3 courses.', 'warning'); return; }
 
+    // Optimistic update: show the course immediately with a temporary ID
+    const tempId = `temp_${Date.now()}`;
+    const optimisticCourse = {
+      ...course,
+      id: tempId,
+      userId: user.id,
+      gradingScale: course.gradingScale,
+      schedule: course.schedule || []
+    };
+    setCourses(prev => [...prev, optimisticCourse]);
+    addNotification('Course added successfully!', 'success');
+
     // Map to snake_case for DB
     const dbCourse = {
       user_id: user.id,
@@ -468,18 +498,18 @@ export const AppProvider = ({ children }) => {
     const { data, error } = await supabase.from('courses').insert([dbCourse]).select().single();
 
     if (error) {
+      // Rollback: remove the optimistic course
+      setCourses(prev => prev.filter(c => c.id !== tempId));
       addNotification(`Error adding course: ${error.message}`, 'error');
     } else {
-      // Map back to camelCase for state
-      const newCourseState = {
+      // Replace temp ID with real ID from database
+      setCourses(prev => prev.map(c => c.id === tempId ? {
         ...course,
         id: data.id,
         userId: data.user_id,
         gradingScale: data.grading_scale,
         schedule: data.schedule
-      };
-      setCourses([...courses, newCourseState]);
-      addNotification('Course added successfully!', 'success');
+      } : c));
       logActivity('course_added', `Started a new course: ${course.name} (${course.code})`, { course_id: data.id });
     }
   };

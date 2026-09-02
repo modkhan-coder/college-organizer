@@ -209,6 +209,11 @@ F: 0-59`;
 
     const addCategory = () => {
         setCategories([...categories, { id: uuidv4(), name: 'New Category', weight: 10 }]);
+        // Auto-scroll to show the new category
+        setTimeout(() => {
+            const list = document.getElementById('category-list');
+            if (list) list.scrollTop = list.scrollHeight;
+        }, 50);
     };
 
     const removeCategory = (id) => {
@@ -249,7 +254,7 @@ F: 0-59`;
                 <div style={{ marginTop: '24px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <label className="input-label">Class Schedule</label>
-                        <button type="button" onClick={() => setSchedule([...schedule, { day: 'Mon', start: '10:00', end: '11:00', location: '' }])} style={{ fontSize: '0.875rem', color: 'var(--primary)', background: 'none', border: 'none' }}>+ Add Time</button>
+                        <button type="button" onClick={() => setSchedule([...schedule, { day: 'Mon', start: '10:00', end: '11:00', location: '' }])} style={{ fontSize: '0.875rem', color: 'var(--primary)', background: 'rgba(99,102,241,0.1)', border: '1px solid var(--primary)', borderRadius: '6px', padding: '8px 14px', cursor: 'pointer', minHeight: '44px', WebkitTapHighlightColor: 'transparent' }}>+ Add Time</button>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {schedule.map((slot, idx) => (
@@ -311,9 +316,9 @@ F: 0-59`;
                 <div style={{ marginTop: '24px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <label className="input-label">Grading Categories & Weights</label>
-                        <button type="button" onClick={addCategory} style={{ fontSize: '0.875rem', color: 'var(--primary)', background: 'none', border: 'none' }}>+ Add Category</button>
+                        <button type="button" onClick={addCategory} style={{ fontSize: '0.875rem', color: 'var(--primary)', background: 'rgba(99,102,241,0.1)', border: '1px solid var(--primary)', borderRadius: '6px', padding: '8px 14px', cursor: 'pointer', minHeight: '44px', WebkitTapHighlightColor: 'transparent' }}>+ Add Category</button>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
+                    <div id="category-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
                         {categories.map((cat) => (
                             <div key={cat.id} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                 <input

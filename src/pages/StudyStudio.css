@@ -26,6 +26,7 @@
     border-right: 1px solid var(--border);
     background: var(--bg-surface);
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .studio-viewer {
@@ -40,6 +41,7 @@
     border-left: 1px solid var(--border);
     background: var(--bg-surface);
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .studio-mobile-nav {
@@ -53,14 +55,73 @@
     }
 }
 
-/* iPad / Tablet Portrait - Collapsible Files */
+/* iPad / Tablet Portrait - Use mobile-style tab navigation */
 @media (max-width: 1024px) {
     .studio-content {
-        grid-template-columns: 0px 1fr 350px;
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .studio-panel {
+        display: none;
+        width: 100%;
+        flex: 1;
+        min-height: 0;
+        border: none;
+    }
+
+    .studio-panel.active {
+        display: flex;
     }
 
     .studio-files {
-        display: none;
+        border-right: none;
+    }
+
+    .studio-mobile-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        height: 64px;
+        min-height: 64px;
+        flex-shrink: 0;
+        background: var(--bg-sidebar);
+        border-top: none;
+        z-index: 90;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.25);
+    }
+
+    .studio-mobile-tab {
+        flex: 1;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: none;
+        color: rgba(255, 255, 255, 0.55);
+        font-size: 0.9rem;
+        font-weight: 500;
+        gap: 4px;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        transition: color 0.2s ease;
+    }
+
+    .studio-mobile-tab svg {
+        width: 24px;
+        height: 24px;
+    }
+
+    .studio-mobile-tab.active {
+        color: #818cf8;
+        font-weight: 700;
     }
 }
 

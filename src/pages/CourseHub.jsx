@@ -108,7 +108,7 @@ const CourseHub = () => {
             const filePath = `${user.id}/${courseId}/${file.name}`;
             const { data: uploadData, error: uploadError } = await supabase.storage
                 .from('course_materials')
-                .upload(filePath, file);
+                .upload(filePath, file, { upsert: true });
 
             if (uploadError) {
                 throw new Error(`Upload failed: ${uploadError.message}`);
@@ -119,7 +119,7 @@ const CourseHub = () => {
                 .from('course_materials')
                 .getPublicUrl(filePath);
 
-            // Create resource entry
+            // Create resource entry in course_resources (Hub)
             const { error: insertError } = await supabase
                 .from('course_resources')
                 .insert({
@@ -134,6 +134,38 @@ const CourseHub = () => {
 
             if (insertError) {
                 throw new Error(`Database error: ${insertError.message}`);
+            }
+
+            // If it's a PDF, also sync to pdf_files table for AI Studio
+            if (file.name.toLowerCase().endsWith('.pdf')) {
+                try {
+                    // Check if already exists in pdf_files
+                    const { data: existingPdf } = await supabase
+                        .from('pdf_files')
+                        .select('id')
+                        .eq('user_id', user.id)
+                        .eq('course_id', courseId)
+                        .eq('file_path', filePath)
+                        .maybeSingle();
+
+                    if (!existingPdf) {
+                        // Dynamically import to avoid loading pdfProcessor for non-PDF uploads
+                        const { extractTextFromPdf } = await import('../utils/pdfProcessor');
+                        const { numPages } = await extractTextFromPdf(file);
+
+                        await supabase.from('pdf_files').insert({
+                            user_id: user.id,
+                            course_id: courseId,
+                            file_name: file.name,
+                            file_path: filePath,
+                            num_pages: numPages
+                        });
+                        console.log('[Hub] PDF synced to AI Studio');
+                    }
+                } catch (syncError) {
+                    console.warn('[Hub] AI Studio sync failed (non-critical):', syncError.message);
+                    // Don't throw — the Hub upload still succeeded
+                }
             }
 
             addNotification('File uploaded successfully!', 'success');

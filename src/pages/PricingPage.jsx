@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
-import { Check, X, CreditCard, Star, Zap } from 'lucide-react';
+import { Check, X, CreditCard, Star, Zap, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
+import { isIAPAvailable, purchaseProduct, getProductPrice, restorePurchases, PRODUCTS, PRODUCT_TO_PLAN } from '../utils/iapService';
 
 const PricingPage = ({ isModal = false, onClose }) => {
     const { user, saveUser, addNotification } = useApp();
@@ -15,6 +16,26 @@ const PricingPage = ({ isModal = false, onClose }) => {
 
     // Safety check for user.plan
     const currentPlan = user?.plan || 'free';
+
+    const isIOS = Capacitor.getPlatform() === 'ios' && Capacitor.isNativePlatform();
+
+    const [applePrices, setApplePrices] = useState({
+        proMonthly: null,
+        proYearly: null,
+        premiumMonthly: null,
+        premiumYearly: null
+    });
+
+    useEffect(() => {
+        if (isIOS) {
+            setApplePrices({
+                proMonthly: getProductPrice(PRODUCTS.PRO_MONTHLY),
+                proYearly: getProductPrice(PRODUCTS.PRO_YEARLY),
+                premiumMonthly: getProductPrice(PRODUCTS.PREMIUM_MONTHLY),
+                premiumYearly: getProductPrice(PRODUCTS.PREMIUM_YEARLY)
+            });
+        }
+    }, [isIOS]);
 
     // Payment verification is now handled globally by PaymentSync
 
@@ -65,6 +86,41 @@ const PricingPage = ({ isModal = false, onClose }) => {
 
         setProcessingPlan(plan);
         try {
+            if (isIOS && plan !== 'free') {
+                let productId = null;
+                if (plan === 'pro') {
+                    productId = billingCycle === 'monthly' ? PRODUCTS.PRO_MONTHLY : PRODUCTS.PRO_YEARLY;
+                } else if (plan === 'premium') {
+                    productId = billingCycle === 'monthly' ? PRODUCTS.PREMIUM_MONTHLY : PRODUCTS.PREMIUM_YEARLY;
+                }
+
+                if (productId) {
+                    console.log('[UPGRADE] iOS IAP purchase for:', productId);
+                    console.log('[UPGRADE] IAP Available:', isIAPAvailable());
+                    console.log('[UPGRADE] CdvPurchase exists:', !!window.CdvPurchase);
+                    
+                    if (!isIAPAvailable()) {
+                        // IAP store not ready — fall back to Stripe web checkout
+                        console.warn('[UPGRADE] IAP not available, falling back to Stripe checkout');
+                        // Don't return, let it fall through to Stripe flow below
+                    } else {
+                        await purchaseProduct(productId);
+                        // Optimistic update: immediately reflect the new plan in UI
+                        const newPlan = PRODUCT_TO_PLAN[productId] || plan;
+                        saveUser({ ...user, plan: newPlan, payment_provider: 'apple', subscription_status: 'active' });
+                        addNotification(`🎉 Upgraded to ${newPlan.toUpperCase()}!`, 'success');
+                        setProcessingPlan(null);
+                        // Navigate back to the feature they were trying to access
+                        if (isModal && onClose) {
+                            onClose();
+                        } else {
+                            navigate(-1);
+                        }
+                        return;
+                    }
+                }
+            }
+
             // FORCE SESSION REFRESH: Ensure token is fresh before calling Edge Function
             const { data: sessionData } = await supabase.auth.getSession();
             if (!sessionData.session) {
@@ -151,7 +207,8 @@ const PricingPage = ({ isModal = false, onClose }) => {
             }
         } catch (error) {
             console.error('[UPGRADE] Failed:', error);
-            addNotification(`Checkout failed: ${error.message || 'Unknown error'}`, 'error');
+            console.error('[UPGRADE] Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+            addNotification(`Checkout failed: ${error.message || error.code || JSON.stringify(error) || 'Unknown error'}`, 'error');
             setProcessingPlan(null);
         }
     };
@@ -175,7 +232,7 @@ const PricingPage = ({ isModal = false, onClose }) => {
 
     const content = (
         <div style={{ maxWidth: '1000px', margin: '0 auto', padding: isModal ? '0' : '24px 0', position: 'relative' }}>
-            {isModal && (
+            {isModal ? (
                 <button
                     onClick={onClose}
                     style={{
@@ -192,6 +249,30 @@ const PricingPage = ({ isModal = false, onClose }) => {
                     }}
                 >
                     <X size={24} />
+                </button>
+            ) : (
+                <button
+                    onClick={() => navigate(-1)}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        background: 'var(--bg-surface)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '12px',
+                        padding: '10px 18px',
+                        cursor: 'pointer',
+                        color: 'var(--text-main)',
+                        fontSize: '0.95rem',
+                        fontWeight: '500',
+                        marginBottom: '20px',
+                        minHeight: '44px',
+                        WebkitTapHighlightColor: 'transparent',
+                        transition: 'all 0.2s ease'
+                    }}
+                >
+                    <ArrowLeft size={18} />
+                    Back
                 </button>
             )}
             <div style={{ textAlign: 'center', marginBottom: '40px' }}>
@@ -273,10 +354,16 @@ const PricingPage = ({ isModal = false, onClose }) => {
                     <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Zap size={24} fill="var(--accent)" color="var(--accent)" /> Boost Your GPA
                     </h3>
-                    <div style={{ fontSize: '2rem', fontWeight: 'bold', margin: '16px 0' }}>
-                        {billingCycle === 'yearly' ? '$49.99' : '$4.99'}
-                        <span style={{ fontSize: '1rem', fontWeight: 'normal', color: 'var(--text-secondary)' }}>/{billingCycle === 'yearly' ? 'yr' : 'mo'}</span>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '4px 0 0 0', fontWeight: '600' }}>
+                        {billingCycle === 'yearly' ? 'Pro Yearly Subscription' : 'Pro Monthly Subscription'}
+                    </p>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', margin: '16px 0 4px 0' }}>
+                        {isIOS ? (billingCycle === 'yearly' ? (applePrices.proYearly || '$49.99') : (applePrices.proMonthly || '$4.99')) : (billingCycle === 'yearly' ? '$49.99' : '$4.99')}
+                        <span style={{ fontSize: '1rem', fontWeight: 'normal', color: 'var(--text-secondary)' }}>/{billingCycle === 'yearly' ? 'year' : 'month'}</span>
                     </div>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0 0 16px 0' }}>
+                        {billingCycle === 'yearly' ? 'Billed annually at $49.99/year. Auto-renews every 12 months.' : 'Billed monthly at $4.99/month. Auto-renews every month.'}
+                    </p>
                     <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Advanced tools to forecast and improve grades.</p>
 
                     <button
@@ -311,10 +398,16 @@ const PricingPage = ({ isModal = false, onClose }) => {
                     <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Star size={24} fill="var(--warning)" color="var(--warning)" /> Automate Your Success
                     </h3>
-                    <div style={{ fontSize: '2rem', fontWeight: 'bold', margin: '16px 0' }}>
-                        {billingCycle === 'yearly' ? '$99.99' : '$9.99'}
-                        <span style={{ fontSize: '1rem', fontWeight: 'normal', color: 'var(--text-secondary)' }}>/{billingCycle === 'yearly' ? 'yr' : 'mo'}</span>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '4px 0 0 0', fontWeight: '600' }}>
+                        {billingCycle === 'yearly' ? 'Premium Yearly Subscription' : 'Premium Monthly Subscription'}
+                    </p>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', margin: '16px 0 4px 0' }}>
+                        {isIOS ? (billingCycle === 'yearly' ? (applePrices.premiumYearly || '$99.99') : (applePrices.premiumMonthly || '$9.99')) : (billingCycle === 'yearly' ? '$99.99' : '$9.99')}
+                        <span style={{ fontSize: '1rem', fontWeight: 'normal', color: 'var(--text-secondary)' }}>/{billingCycle === 'yearly' ? 'year' : 'month'}</span>
                     </div>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0 0 16px 0' }}>
+                        {billingCycle === 'yearly' ? 'Billed annually at $99.99/year. Auto-renews every 12 months.' : 'Billed monthly at $9.99/month. Auto-renews every month.'}
+                    </p>
                     <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Let AI build your perfect study schedule.</p>
 
                     <button
@@ -344,8 +437,59 @@ const PricingPage = ({ isModal = false, onClose }) => {
                     <Feature included={true} text="Custom Themes" />
                 </div>
             </div>
-            <div style={{ marginTop: '40px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                <p>Secure payment processing via Stripe. Cancel anytime.</p>
+            <div style={{ marginTop: '40px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: '1.5' }}>
+                <p style={{ marginBottom: '8px' }}>{isIOS ? 'Payment will be charged to your Apple ID account at confirmation of purchase. Subscriptions automatically renew unless auto-renew is turned off at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours prior to the end of the current period. You can manage and cancel your subscriptions by going to your App Store account settings after purchase.' : 'Secure payment processing via Stripe. Cancel anytime.'}</p>
+
+                {/* Restore Purchases — required by Apple for IAP apps */}
+                {isIOS && (
+                    <button
+                        onClick={async () => {
+                            try {
+                                addNotification('Restoring purchases...', 'info');
+                                await restorePurchases();
+                                addNotification('Purchases restored successfully!', 'success');
+                                // Refresh user data
+                                const { data } = await supabase.from('profiles').select('plan').eq('id', user?.id).single();
+                                if (data?.plan && data.plan !== 'free') {
+                                    window.location.reload();
+                                }
+                            } catch (err) {
+                                addNotification('No previous purchases found.', 'info');
+                            }
+                        }}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--primary)',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem',
+                            fontWeight: '600',
+                            padding: '12px',
+                            textDecoration: 'underline',
+                        }}
+                    >
+                        Restore Purchases
+                    </button>
+                )}
+
+                {/* Privacy Policy & Terms — required by Apple */}
+                <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'center', gap: '16px', fontSize: '0.8rem' }}>
+                    <a
+                        href="#"
+                        onClick={(e) => { e.preventDefault(); navigate('/privacy'); if (onClose) onClose(); }}
+                        style={{ color: 'var(--primary)', textDecoration: 'underline' }}
+                    >
+                        Privacy Policy
+                    </a>
+                    <a
+                        href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: 'var(--primary)', textDecoration: 'underline' }}
+                    >
+                        Terms of Use (EULA)
+                    </a>
+                </div>
             </div>
         </div>
     );

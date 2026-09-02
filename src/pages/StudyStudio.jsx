@@ -221,6 +221,7 @@ const StudyStudio = () => {
     }, [courseId, courses]);
 
     const fetchPDFs = async () => {
+        // First, fetch known pdf_files records
         const { data, error } = await supabase
             .from('pdf_files')
             .select('*')
@@ -228,11 +229,49 @@ const StudyStudio = () => {
             .eq('user_id', user.id)
             .order('uploaded_at', { ascending: false });
 
-        if (!error && data) {
-            setPdfFiles(data);
-            if (data.length > 0 && !selectedPDF) {
-                handleSelectPDF(data[0]);
+        let knownPdfs = (!error && data) ? data : [];
+
+        // Auto-discover: check storage for PDFs that don't have pdf_files records
+        try {
+            const { data: storageFiles } = await supabase.storage
+                .from('course_materials')
+                .list(`${user.id}/${courseId}`);
+
+            if (storageFiles && storageFiles.length > 0) {
+                const knownPaths = new Set(knownPdfs.map(p => p.file_path));
+                const missingPdfs = storageFiles.filter(f =>
+                    f.name.toLowerCase().endsWith('.pdf') &&
+                    !knownPaths.has(`${user.id}/${courseId}/${f.name}`)
+                );
+
+                if (missingPdfs.length > 0) {
+                    console.log(`[Studio] Found ${missingPdfs.length} PDF(s) in storage missing from pdf_files, syncing...`);
+                    const newRecords = missingPdfs.map(f => ({
+                        user_id: user.id,
+                        course_id: courseId,
+                        file_name: f.name,
+                        file_path: `${user.id}/${courseId}/${f.name}`,
+                        num_pages: 0 // Will be updated when the file is first opened
+                    }));
+
+                    const { data: inserted, error: insertErr } = await supabase
+                        .from('pdf_files')
+                        .insert(newRecords)
+                        .select();
+
+                    if (!insertErr && inserted) {
+                        knownPdfs = [...inserted, ...knownPdfs];
+                        console.log(`[Studio] Synced ${inserted.length} PDF(s) from storage`);
+                    }
+                }
             }
+        } catch (syncErr) {
+            console.warn('[Studio] Storage sync check failed:', syncErr.message);
+        }
+
+        setPdfFiles(knownPdfs);
+        if (knownPdfs.length > 0 && !selectedPDF) {
+            handleSelectPDF(knownPdfs[0]);
         }
     };
 
@@ -257,32 +296,95 @@ const StudyStudio = () => {
         const file = e.target.files[0];
         if (!file) return;
 
+        // Reset the input so the same file can be re-selected
+        e.target.value = '';
+
         setUploading(true);
         addNotification('Uploading and processing PDF...', 'info');
 
         try {
             const filePath = `${user.id}/${courseId}/${file.name}`;
-            const { error: uploadError } = await supabase.storage
-                .from('course_materials')
-                .upload(filePath, file);
 
-            if (uploadError) throw uploadError;
+            // Upload with retry logic (up to 3 attempts)
+            let uploadSuccess = false;
+            let lastUploadError = null;
+
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    // Use upsert to handle re-uploads of same file
+                    const { error: uploadError } = await supabase.storage
+                        .from('course_materials')
+                        .upload(filePath, file, { upsert: true });
+
+                    if (uploadError) {
+                        // If it's a duplicate error, try removing first then re-upload
+                        if (uploadError.message?.includes('Duplicate') || uploadError.message?.includes('already exists')) {
+                            console.log(`[PDF Upload] File exists, removing and re-uploading...`);
+                            await supabase.storage.from('course_materials').remove([filePath]);
+                            const { error: retryError } = await supabase.storage
+                                .from('course_materials')
+                                .upload(filePath, file, { upsert: true });
+                            if (retryError) throw retryError;
+                        } else {
+                            throw uploadError;
+                        }
+                    }
+
+                    uploadSuccess = true;
+                    break;
+                } catch (err) {
+                    lastUploadError = err;
+                    console.warn(`[PDF Upload] Attempt ${attempt}/3 failed:`, err.message);
+                    if (attempt < 3) {
+                        // Wait before retrying (500ms, 1500ms)
+                        await new Promise(r => setTimeout(r, attempt * 500));
+                    }
+                }
+            }
+
+            if (!uploadSuccess) {
+                throw lastUploadError || new Error('Upload failed after 3 attempts');
+            }
 
             const { numPages, pages } = await extractTextFromPdf(file);
 
-            const { data: pdfRecord, error: pdfError } = await supabase
+            // Check if a pdf_files record already exists (re-upload case)
+            const { data: existingPdf } = await supabase
                 .from('pdf_files')
-                .insert({
-                    user_id: user.id,
-                    course_id: courseId,
-                    file_name: file.name,
-                    file_path: filePath,
-                    num_pages: numPages
-                })
-                .select()
-                .single();
+                .select('id')
+                .eq('user_id', user.id)
+                .eq('course_id', courseId)
+                .eq('file_path', filePath)
+                .maybeSingle();
 
-            if (pdfError) throw pdfError;
+            let pdfRecord;
+
+            if (existingPdf) {
+                // Update existing record
+                const { data, error: updateError } = await supabase
+                    .from('pdf_files')
+                    .update({ num_pages: numPages, uploaded_at: new Date().toISOString() })
+                    .eq('id', existingPdf.id)
+                    .select()
+                    .single();
+                if (updateError) throw updateError;
+                pdfRecord = data;
+            } else {
+                // Insert new record
+                const { data, error: pdfError } = await supabase
+                    .from('pdf_files')
+                    .insert({
+                        user_id: user.id,
+                        course_id: courseId,
+                        file_name: file.name,
+                        file_path: filePath,
+                        num_pages: numPages
+                    })
+                    .select()
+                    .single();
+                if (pdfError) throw pdfError;
+                pdfRecord = data;
+            }
 
             const chunks = chunkTextByPage(pages);
             console.log(`[PDF Upload] Generated ${chunks.length} chunks for ${numPages} pages`);
@@ -303,23 +405,64 @@ const StudyStudio = () => {
             const BATCH_SIZE = 50;
             for (let i = 0; i < docRecords.length; i += BATCH_SIZE) {
                 const batch = docRecords.slice(i, i + BATCH_SIZE);
-                const { error: insertError } = await supabase
-                    .from('course_docs')
-                    .upsert(batch, { onConflict: 'user_id,course_id,pdf_id,page_number,char_start' });
 
-                if (insertError) {
-                    console.error(`[PDF Upload] Batch upsert error at index ${i}:`, insertError);
-                    throw insertError;
+                // Retry each batch up to 2 times
+                let batchSuccess = false;
+                for (let attempt = 1; attempt <= 2; attempt++) {
+                    const { error: insertError } = await supabase
+                        .from('course_docs')
+                        .upsert(batch, { onConflict: 'user_id,course_id,pdf_id,page_number,char_start' });
+
+                    if (!insertError) {
+                        batchSuccess = true;
+                        break;
+                    }
+                    console.warn(`[PDF Upload] Batch ${Math.floor(i / BATCH_SIZE) + 1} attempt ${attempt} failed:`, insertError.message);
+                    if (attempt < 2) await new Promise(r => setTimeout(r, 500));
+                }
+
+                if (!batchSuccess) {
+                    console.error(`[PDF Upload] Batch at index ${i} failed after retries`);
+                    // Continue with remaining batches instead of stopping entirely
                 }
                 console.log(`[PDF Upload] Upserted batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(docRecords.length / BATCH_SIZE)}`);
             }
 
+            // Sync to Hub: also create a course_resources entry so it appears in Files tab
+            try {
+                const { data: existingResource } = await supabase
+                    .from('course_resources')
+                    .select('id')
+                    .eq('user_id', user.id)
+                    .eq('course_id', courseId)
+                    .eq('file_id', filePath)
+                    .maybeSingle();
+
+                if (!existingResource) {
+                    const { data: urlData } = supabase.storage
+                        .from('course_materials')
+                        .getPublicUrl(filePath);
+
+                    await supabase.from('course_resources').insert({
+                        course_id: courseId,
+                        user_id: user.id,
+                        type: 'file',
+                        title: file.name,
+                        file_id: filePath,
+                        url: urlData.publicUrl,
+                        tags: []
+                    });
+                    console.log('[Studio] PDF synced to Hub Files');
+                }
+            } catch (syncError) {
+                console.warn('[Studio] Hub sync failed (non-critical):', syncError.message);
+            }
 
             addNotification(`${file.name} processed successfully!`, 'success');
             fetchPDFs();
         } catch (error) {
             console.error('Upload error:', error);
-            addNotification(`Upload failed: ${error.message}`, 'error');
+            addNotification(`Upload failed: ${error.message}. Please try again.`, 'error');
         } finally {
             setUploading(false);
         }
@@ -874,6 +1017,64 @@ const StudyStudio = () => {
                             {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
                         </button>
                     </div>
+
+                    {/* PDF File Selector */}
+                    {activeTab !== 'saved' && (
+                        <div style={{
+                            padding: '10px 16px',
+                            borderBottom: '1px solid var(--border)',
+                            background: 'var(--bg-app)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            flexShrink: 0
+                        }}>
+                            <FileText size={14} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+                            {pdfFiles.length === 0 ? (
+                                <label style={{
+                                    flex: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    padding: '6px 10px',
+                                    background: 'var(--primary-light)',
+                                    border: '1px dashed var(--primary)',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    color: 'var(--primary)',
+                                    fontSize: '0.85rem',
+                                    fontWeight: '500'
+                                }}>
+                                    <Upload size={14} />
+                                    Upload a PDF to get started
+                                    <input type="file" accept=".pdf" hidden onChange={handleUpload} disabled={uploading} />
+                                </label>
+                            ) : (
+                                <select
+                                    className="input-field"
+                                    value={selectedPDF?.id || ''}
+                                    onChange={(e) => {
+                                        const pdf = pdfFiles.find(p => p.id === e.target.value);
+                                        if (pdf) handleSelectPDF(pdf);
+                                    }}
+                                    style={{
+                                        flex: 1,
+                                        padding: '6px 10px',
+                                        fontSize: '0.85rem',
+                                        borderRadius: '8px',
+                                        fontWeight: '500'
+                                    }}
+                                >
+                                    {!selectedPDF && <option value="">Select a PDF...</option>}
+                                    {pdfFiles.map(pdf => (
+                                        <option key={pdf.id} value={pdf.id}>
+                                            {pdf.file_name} ({pdf.num_pages} pg)
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+                        </div>
+                    )}
 
                     {/* Tab Content */}
                     <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>

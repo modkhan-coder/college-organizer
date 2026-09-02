@@ -71,6 +71,9 @@ const CourseDetails = () => {
         const file = e.target.files[0];
         if (!file) return;
 
+        // Reset input so the same file can be re-selected
+        e.target.value = '';
+
         setUploading(true);
         addNotification('Uploading and processing...', 'info');
 
@@ -78,7 +81,7 @@ const CourseDetails = () => {
             // 1. Upload File
             const filePath = `${user.id}/${courseId}/${file.name}`;
             console.log('Antigravity Debug: Attempting upload to bucket course_materials at path:', filePath);
-            const { error: uploadError } = await supabase.storage.from('course_materials').upload(filePath, file);
+            const { error: uploadError } = await supabase.storage.from('course_materials').upload(filePath, file, { upsert: true });
 
             if (uploadError) {
                 console.error('Antigravity Debug: Upload Error:', uploadError);
@@ -88,7 +91,7 @@ const CourseDetails = () => {
             console.log('Antigravity Debug: Upload successful, extracting text via PDF.js...');
 
             // 2. Extract Text (if PDF)
-            if (file.type === 'application/pdf') {
+            if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
                 const { numPages, pages } = await extractTextFromPdf(file);
                 // Combine all page texts into a single string for legacy chunking
                 const fullText = pages.map(p => p.text).join('\n\n');
@@ -109,6 +112,30 @@ const CourseDetails = () => {
                 if (insertError) {
                     console.error('Antigravity Debug: Insert Error:', insertError);
                     throw new Error(`Saving to Database failed: ${insertError.message}. Did you run the SQL script?`);
+                }
+
+                // 4. Sync to pdf_files so it appears in AI Studio
+                try {
+                    const { data: existingPdf } = await supabase
+                        .from('pdf_files')
+                        .select('id')
+                        .eq('user_id', user.id)
+                        .eq('course_id', courseId)
+                        .eq('file_path', filePath)
+                        .maybeSingle();
+
+                    if (!existingPdf) {
+                        await supabase.from('pdf_files').insert({
+                            user_id: user.id,
+                            course_id: courseId,
+                            file_name: file.name,
+                            file_path: filePath,
+                            num_pages: numPages
+                        });
+                        console.log('[CourseDetails] PDF synced to AI Studio pdf_files');
+                    }
+                } catch (syncErr) {
+                    console.warn('[CourseDetails] AI Studio sync failed (non-critical):', syncErr.message);
                 }
             }
 

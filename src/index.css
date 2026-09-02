@@ -31,6 +31,49 @@ body {
   scroll-behavior: smooth;
 }
 
+/* ============================================================
+   GLOBAL SMOOTH SCROLLING
+   Apply momentum scrolling and smooth behavior to ALL
+   scrollable containers across the entire app.
+   ============================================================ */
+
+/* Any element with vertical overflow scrolling */
+[style*="overflow-y: auto"],
+[style*="overflow-y:auto"],
+[style*="overflowY: 'auto'"],
+[style*="overflowY: auto"] {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Any element with horizontal overflow scrolling */
+[style*="overflow-x: auto"],
+[style*="overflow-x:auto"],
+[style*="overflowX: 'auto'"],
+[style*="overflowX: auto"] {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* CSS class-based scrollable containers */
+.sidebar-nav,
+.studio-files,
+.studio-tools,
+.studio-viewer,
+.scroll-y,
+.scroll-x {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* All elements with overflow-y auto/scroll via CSS */
+.card,
+.modal-body,
+.content-container,
+main {
+  scroll-behavior: smooth;
+}
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
 }
