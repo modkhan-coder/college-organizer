@@ -1,0 +1,29 @@
+{
+  "" : {
+    "diagnostics" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/App.build/Debug-iphonesimulator/App.build/Objects-normal/arm64/App-primary.dia",
+    "emit-module-dependencies" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/App.build/Debug-iphonesimulator/App.build/Objects-normal/arm64/App-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/App.build/Debug-iphonesimulator/App.build/Objects-normal/arm64/App-primary-emit-module.dia",
+    "pch" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/App.build/Debug-iphonesimulator/App.build/Objects-normal/arm64/App-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/App.build/Debug-iphonesimulator/App.build/Objects-normal/arm64/App-primary.swiftdeps"
+  },
+  "/Users/ModouKhan/Documents/R Project/App1/ios/App/App/AppDelegate.swift" : {
+    "const-values" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/App.build/Debug-iphonesimulator/App.build/Objects-normal/arm64/AppDelegate.swiftconstvalues",
+    "dependencies" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/App.build/Debug-iphonesimulator/App.build/Objects-normal/arm64/AppDelegate.d",
+    "diagnostics" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/App.build/Debug-iphonesimulator/App.build/Objects-normal/arm64/AppDelegate.dia",
+    "index-unit-output-path" : "/App.build/Debug-iphonesimulator/App.build/Objects-normal/arm64/AppDelegate.o",
+    "llvm-bc" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/App.build/Debug-iphonesimulator/App.build/Objects-normal/arm64/AppDelegate.bc",
+    "object" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/App.build/Debug-iphonesimulator/App.build/Objects-normal/arm64/AppDelegate.o",
+    "swift-dependencies" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/App.build/Debug-iphonesimulator/App.build/Objects-normal/arm64/AppDelegate.swiftdeps",
+    "swiftmodule" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/App.build/Debug-iphonesimulator/App.build/Objects-normal/arm64/AppDelegate~partial.swiftmodule"
+  },
+  "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/App.build/Debug-iphonesimulator/App.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/App.build/Debug-iphonesimulator/App.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/App.build/Debug-iphonesimulator/App.build/Objects-normal/arm64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/App.build/Debug-iphonesimulator/App.build/Objects-normal/arm64/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/App.build/Debug-iphonesimulator/App.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/App.build/Debug-iphonesimulator/App.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/App.build/Debug-iphonesimulator/App.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/App.build/Debug-iphonesimulator/App.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/App.build/Debug-iphonesimulator/App.build/Objects-normal/arm64/GeneratedAssetSymbols~partial.swiftmodule"
+  }
+}

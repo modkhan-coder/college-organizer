@@ -437,18 +437,17 @@ const PricingPage = ({ isModal = false, onClose }) => {
                     <Feature included={true} text="Custom Themes" />
                 </div>
             </div>
-            <div style={{ marginTop: '40px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: '1.5' }}>
-                <p style={{ marginBottom: '8px' }}>{isIOS ? 'Payment will be charged to your Apple ID account at confirmation of purchase. Subscriptions automatically renew unless auto-renew is turned off at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours prior to the end of the current period. You can manage and cancel your subscriptions by going to your App Store account settings after purchase.' : 'Secure payment processing via Stripe. Cancel anytime.'}</p>
 
-                {/* Restore Purchases — required by Apple for IAP apps */}
-                {isIOS && (
+            {/* Apple-Required Subscription Disclosures — 3.1.2 Compliance */}
+            {isIOS && (
+                <div style={{ marginTop: '32px', textAlign: 'center' }}>
+                    {/* Restore Purchases — prominent placement */}
                     <button
                         onClick={async () => {
                             try {
                                 addNotification('Restoring purchases...', 'info');
                                 await restorePurchases();
                                 addNotification('Purchases restored successfully!', 'success');
-                                // Refresh user data
                                 const { data } = await supabase.from('profiles').select('plan').eq('id', user?.id).single();
                                 if (data?.plan && data.plan !== 'free') {
                                     window.location.reload();
@@ -458,24 +457,39 @@ const PricingPage = ({ isModal = false, onClose }) => {
                             }
                         }}
                         style={{
-                            background: 'none',
-                            border: 'none',
+                            background: 'var(--bg-surface)',
+                            border: '1px solid var(--border)',
                             color: 'var(--primary)',
                             cursor: 'pointer',
-                            fontSize: '0.9rem',
+                            fontSize: '0.95rem',
                             fontWeight: '600',
-                            padding: '12px',
-                            textDecoration: 'underline',
+                            padding: '12px 24px',
+                            borderRadius: '12px',
+                            marginBottom: '20px',
+                            minHeight: '44px',
                         }}
                     >
                         Restore Purchases
                     </button>
+                </div>
+            )}
+
+            <div style={{ marginTop: isIOS ? '0' : '32px', padding: '20px', background: 'var(--bg-surface)', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'left', color: 'var(--text-secondary)', fontSize: '0.78rem', lineHeight: '1.6' }}>
+                {isIOS ? (
+                    <>
+                        <p style={{ marginBottom: '8px' }}>
+                            Payment will be charged to iTunes Account at confirmation of purchase. Subscription automatically renews unless auto-renew is turned off at least 24-hours before the end of the current period. Account will be charged for renewal within 24-hours prior to the end of the current period. Subscriptions may be managed by the user and auto-renewal may be turned off by going to the user's Account Settings after purchase.
+                        </p>
+                    </>
+                ) : (
+                    <p style={{ marginBottom: '8px' }}>
+                        Secure payment processing via Stripe. You can cancel your subscription anytime from your profile settings.
+                    </p>
                 )}
 
-                {/* Privacy Policy & Terms — required by Apple */}
-                <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'center', gap: '16px', fontSize: '0.8rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '12px', fontSize: '0.8rem' }}>
                     <a
-                        href="#"
+                        href="/privacy"
                         onClick={(e) => { e.preventDefault(); navigate('/privacy'); if (onClose) onClose(); }}
                         style={{ color: 'var(--primary)', textDecoration: 'underline' }}
                     >

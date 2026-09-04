@@ -1,0 +1,29 @@
+{
+  "" : {
+    "diagnostics" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/CapacitorBrowser.build/Debug-iphonesimulator/BrowserPlugin.build/Objects-normal/arm64/BrowserPlugin-primary.dia",
+    "emit-module-dependencies" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/CapacitorBrowser.build/Debug-iphonesimulator/BrowserPlugin.build/Objects-normal/arm64/BrowserPlugin-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/CapacitorBrowser.build/Debug-iphonesimulator/BrowserPlugin.build/Objects-normal/arm64/BrowserPlugin-primary-emit-module.dia",
+    "pch" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/CapacitorBrowser.build/Debug-iphonesimulator/BrowserPlugin.build/Objects-normal/arm64/BrowserPlugin-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/CapacitorBrowser.build/Debug-iphonesimulator/BrowserPlugin.build/Objects-normal/arm64/BrowserPlugin-primary.swiftdeps"
+  },
+  "/Users/ModouKhan/Documents/R Project/App1/node_modules/@capacitor/browser/ios/Sources/BrowserPlugin/Browser.swift" : {
+    "const-values" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/CapacitorBrowser.build/Debug-iphonesimulator/BrowserPlugin.build/Objects-normal/arm64/Browser.swiftconstvalues",
+    "dependencies" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/CapacitorBrowser.build/Debug-iphonesimulator/BrowserPlugin.build/Objects-normal/arm64/Browser.d",
+    "diagnostics" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/CapacitorBrowser.build/Debug-iphonesimulator/BrowserPlugin.build/Objects-normal/arm64/Browser.dia",
+    "index-unit-output-path" : "/CapacitorBrowser.build/Debug-iphonesimulator/BrowserPlugin.build/Objects-normal/arm64/Browser.o",
+    "llvm-bc" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/CapacitorBrowser.build/Debug-iphonesimulator/BrowserPlugin.build/Objects-normal/arm64/Browser.bc",
+    "object" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/CapacitorBrowser.build/Debug-iphonesimulator/BrowserPlugin.build/Objects-normal/arm64/Browser.o",
+    "swift-dependencies" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/CapacitorBrowser.build/Debug-iphonesimulator/BrowserPlugin.build/Objects-normal/arm64/Browser.swiftdeps",
+    "swiftmodule" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/CapacitorBrowser.build/Debug-iphonesimulator/BrowserPlugin.build/Objects-normal/arm64/Browser~partial.swiftmodule"
+  },
+  "/Users/ModouKhan/Documents/R Project/App1/node_modules/@capacitor/browser/ios/Sources/BrowserPlugin/BrowserPlugin.swift" : {
+    "const-values" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/CapacitorBrowser.build/Debug-iphonesimulator/BrowserPlugin.build/Objects-normal/arm64/BrowserPlugin.swiftconstvalues",
+    "dependencies" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/CapacitorBrowser.build/Debug-iphonesimulator/BrowserPlugin.build/Objects-normal/arm64/BrowserPlugin.d",
+    "diagnostics" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/CapacitorBrowser.build/Debug-iphonesimulator/BrowserPlugin.build/Objects-normal/arm64/BrowserPlugin.dia",
+    "index-unit-output-path" : "/CapacitorBrowser.build/Debug-iphonesimulator/BrowserPlugin.build/Objects-normal/arm64/BrowserPlugin.o",
+    "llvm-bc" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/CapacitorBrowser.build/Debug-iphonesimulator/BrowserPlugin.build/Objects-normal/arm64/BrowserPlugin.bc",
+    "object" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/CapacitorBrowser.build/Debug-iphonesimulator/BrowserPlugin.build/Objects-normal/arm64/BrowserPlugin.o",
+    "swift-dependencies" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/CapacitorBrowser.build/Debug-iphonesimulator/BrowserPlugin.build/Objects-normal/arm64/BrowserPlugin.swiftdeps",
+    "swiftmodule" : "/Users/ModouKhan/Documents/R Project/App1/ios/build/Build/Intermediates.noindex/CapacitorBrowser.build/Debug-iphonesimulator/BrowserPlugin.build/Objects-normal/arm64/BrowserPlugin~partial.swiftmodule"
+  }
+}
