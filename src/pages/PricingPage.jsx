@@ -497,6 +497,12 @@ const PricingPage = ({ isModal = false, onClose }) => {
                     </a>
                     <a
                         href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
+                        onClick={(e) => {
+                            if (Capacitor.isNativePlatform()) {
+                                e.preventDefault();
+                                Browser.open({ url: 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/' });
+                            }
+                        }}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{ color: 'var(--primary)', textDecoration: 'underline' }}

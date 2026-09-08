@@ -507,21 +507,21 @@ const Profile = () => {
                     </div>
                 </div>
 
-                {/* Privacy & Ad Preferences Card */}
+                {/* Privacy Settings Card */}
                 <div className="card">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                         <Shield size={20} color="var(--primary)" />
-                        <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>Privacy & Ad Preferences</h3>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>Privacy Settings</h3>
                     </div>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '20px' }}>
-                        Manage how your data is used for personalization and shared with advertising partners.
+                        Manage your data and privacy preferences.
                     </p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div style={{ flex: 1, paddingRight: '12px' }}>
-                                <h4 style={{ margin: 0, fontSize: '0.95rem' }}>Partner Data Sharing</h4>
+                                <h4 style={{ margin: 0, fontSize: '0.95rem' }}>Usage Analytics</h4>
                                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '4px' }}>
-                                    Provide additional information to advertising partners to select which ads to show and measure performance.
+                                    Help improve College Organizer by sharing anonymous usage data.
                                 </p>
                             </div>
                             <input
@@ -543,7 +543,7 @@ const Profile = () => {
                                 marginTop: '8px'
                             }}
                         >
-                            View Privacy Center &rarr;
+                            View Privacy Policy &rarr;
                         </Link>
                     </div>
                 </div>

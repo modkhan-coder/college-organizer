@@ -47,10 +47,10 @@ const PrivacyBanner = () => {
                 </div>
                 <div>
                     <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main)' }}>
-                        Privacy & Partner Data Update
+                        Privacy Policy Update
                     </h4>
                     <p style={{ margin: '4px 0 0', fontSize: '0.925rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                        We're introducing new tools to give you more control over your data and how it's shared with partners.
+                        We've updated our privacy policy. Review how your data is collected and used.
                         <Link
                             to="/privacy"
                             style={{
@@ -67,7 +67,7 @@ const PrivacyBanner = () => {
                             onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
                             onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}
                         >
-                            View Privacy Center <ExternalLink size={14} />
+                            View Privacy Policy <ExternalLink size={14} />
                         </Link>
                     </p>
                 </div>
