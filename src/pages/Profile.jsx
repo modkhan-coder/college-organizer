@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { User, Save, LogOut, Globe, CreditCard, Shield } from 'lucide-react';
+import { User, Save, LogOut, Globe, CreditCard, Shield, Trash2 } from 'lucide-react';
 import { generateICS, generateCSV, downloadFile } from '../utils/exportUtils';
 import { useTheme } from '../context/ThemeContext';
 import { Palette, Lock } from 'lucide-react';
@@ -25,6 +25,8 @@ const Profile = () => {
     const navigate = useNavigate();
 
     const isIOS = Capacitor.getPlatform() === 'ios' && Capacitor.isNativePlatform();
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deleteLoading, setDeleteLoading] = useState(false);
 
     // Payment verification is now handled globally by PaymentSync
 
@@ -88,6 +90,35 @@ const Profile = () => {
             // State update handled by onAuthStateChange in AppContext
         }
     }
+
+    const handleDeleteAccount = async () => {
+        setDeleteLoading(true);
+        try {
+            const userId = user?.id;
+            if (!userId) throw new Error('No user ID found');
+
+            // Delete all user data from database tables
+            await supabase.from('study_tasks').delete().eq('user_id', userId);
+            await supabase.from('assignments').delete().eq('user_id', userId);
+            await supabase.from('courses').delete().eq('user_id', userId);
+            await supabase.from('notifications').delete().eq('user_id', userId);
+            await supabase.from('connections').delete().or(`user_id.eq.${userId},friend_id.eq.${userId}`);
+            await supabase.from('profiles').delete().eq('id', userId);
+
+            // Clear local storage
+            localStorage.clear();
+
+            // Sign out
+            await supabase.auth.signOut();
+
+            // Navigate to landing page
+            navigate('/');
+        } catch (error) {
+            console.error('[DELETE] Failed:', error);
+            addNotification(`Failed to delete account: ${error.message || 'Unknown error'}`, 'error');
+            setDeleteLoading(false);
+        }
+    };
 
     const handleManageBilling = async () => {
         setProcessingBilling(true);
@@ -560,6 +591,49 @@ const Profile = () => {
                     <Link to="/integrations" className="btn btn-primary" style={{ width: '100%' }}>
                         Manage Connections
                     </Link>
+                </div>
+
+                {/* Delete Account Card — Required by Apple 5.1.1(v) */}
+                <div className="card" style={{ border: '1px solid var(--danger)', background: 'rgba(239, 68, 68, 0.03)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                        <Trash2 size={20} color="var(--danger)" />
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0, color: 'var(--danger)' }}>Delete Account</h3>
+                    </div>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '16px', lineHeight: '1.5' }}>
+                        Permanently delete your account and all associated data including courses, assignments, grades, and study materials. This action cannot be undone.
+                    </p>
+                    {!showDeleteConfirm ? (
+                        <button
+                            onClick={() => setShowDeleteConfirm(true)}
+                            className="btn btn-secondary"
+                            style={{ color: 'var(--danger)', borderColor: 'var(--danger)', width: '100%' }}
+                        >
+                            <Trash2 size={16} /> Delete My Account
+                        </button>
+                    ) : (
+                        <div style={{ background: 'rgba(239, 68, 68, 0.08)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--danger)' }}>
+                            <p style={{ fontWeight: '600', color: 'var(--danger)', marginBottom: '12px', fontSize: '0.95rem' }}>
+                                ⚠️ Are you absolutely sure? All your data will be permanently deleted.
+                            </p>
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <button
+                                    onClick={handleDeleteAccount}
+                                    disabled={deleteLoading}
+                                    className="btn btn-primary"
+                                    style={{ background: 'var(--danger)', flex: 1 }}
+                                >
+                                    {deleteLoading ? 'Deleting...' : 'Yes, Delete Everything'}
+                                </button>
+                                <button
+                                    onClick={() => setShowDeleteConfirm(false)}
+                                    className="btn btn-secondary"
+                                    style={{ flex: 1 }}
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
             {showPricingModal && (
