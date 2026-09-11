@@ -66,7 +66,7 @@ const Onboarding = () => {
                         <GraduationCap size={40} />
                     </div>
                     <h1 style={{ fontSize: '2rem', fontWeight: '800', marginBottom: '8px', background: 'linear-gradient(to right, var(--primary), var(--accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                        Welcome, {user?.email?.split('@')[0] || 'Student'}!
+                        Welcome, {user?.user_metadata?.full_name || user?.user_metadata?.name || user?.name || (() => { const emailPrefix = user?.email?.split('@')[0] || ''; return (emailPrefix.length > 3 && !/^[a-z0-9]{8,}$/i.test(emailPrefix)) ? emailPrefix : 'Student'; })()}!
                     </h1>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>
                         Let's set up your academic profile so we can help you succeed.

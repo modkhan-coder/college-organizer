@@ -51,9 +51,9 @@ function App() {
     return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--text-secondary)' }}>Loading...</div>;
   }
 
-  // FORCE ONBOARDING: Check account metadata, context state, OR local cache fallback
+  // FORCE ONBOARDING: Check account metadata, context state, settings, OR local cache fallback
   const localProfile = JSON.parse(localStorage.getItem('cached_student_profile') || '{}');
-  const isSetupDone = user?.user_metadata?.onboarding_completed || user?.onboardingComplete || localProfile.onboardingComplete;
+  const isSetupDone = user?.user_metadata?.onboarding_completed || user?.onboardingComplete || user?.settings?.onboardingComplete || localProfile.onboardingComplete || !!user?.school;
 
   if (user && !loading && !isSetupDone) {
     return <Onboarding />;
