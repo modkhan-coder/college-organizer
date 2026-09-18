@@ -109,9 +109,11 @@ const Dashboard = () => {
     const getStudentIdentity = () => {
         try {
             const localData = JSON.parse(localStorage.getItem('cached_student_profile') || '{}');
-            const name = user?.name || user?.display_name || localData.name || 'Student';
+            const rawName = user?.name || user?.display_name || user?.user_metadata?.full_name || localData.name || '';
             const school = user?.school || localData.school || '';
-            const firstName = (typeof name === 'string' ? name : 'Student').split(' ')[0];
+            // Detect garbled Apple relay email prefixes (e.g. "9g6jw7j9dy")
+            const isGarbled = !rawName || /^[a-z0-9]{6,}$/i.test(rawName);
+            const firstName = isGarbled ? 'Student' : (typeof rawName === 'string' ? rawName : 'Student').split(' ')[0];
             return { firstName, school };
         } catch (e) {
             console.error('Identity sync error:', e);

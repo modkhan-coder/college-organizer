@@ -2,12 +2,14 @@ import React from 'react';
 import { Shield, ExternalLink, Check } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Link } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 
 const PrivacyBanner = () => {
     const { user, acknowledgePrivacy } = useApp();
 
-    // Only show if user is logged in AND hasn't acknowledged the update
-    if (!user || user.settings?.privacy_acknowledged) return null;
+    // Hide on iOS native (Apple reviewers flag this as clutter/incomplete)
+    // Also hide if user already acknowledged
+    if (!user || user.settings?.privacy_acknowledged || (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios')) return null;
 
     return (
         <div

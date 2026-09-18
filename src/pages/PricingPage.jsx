@@ -378,7 +378,7 @@ const PricingPage = ({ isModal = false, onClose }) => {
                             handleUpgrade('pro');
                         }}
                     >
-                        {!user ? 'Get Started' : processingPlan === 'pro' ? 'Processing...' : currentPlan === 'pro' ? 'Active Plan' : `Upgrade to Pro (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`}
+                        {!user ? (isIOS ? 'Subscribe' : 'Get Started') : processingPlan === 'pro' ? 'Processing...' : currentPlan === 'pro' ? 'Active Plan' : (isIOS ? `Subscribe to Pro (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})` : `Upgrade to Pro (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`)}
                     </button>
 
                     <Feature included={true} text="Unlimited Courses" />
@@ -422,7 +422,7 @@ const PricingPage = ({ isModal = false, onClose }) => {
                             handleUpgrade('premium');
                         }}
                     >
-                        {!user ? 'Get Started' : processingPlan === 'premium' ? 'Processing...' : currentPlan === 'premium' ? 'Active Plan' : `Get Premium (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`}
+                        {!user ? (isIOS ? 'Subscribe' : 'Get Started') : processingPlan === 'premium' ? 'Processing...' : currentPlan === 'premium' ? 'Active Plan' : (isIOS ? `Subscribe to Premium (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})` : `Get Premium (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`)}
                     </button>
 
                     <Feature included={true} text="Everything in Pro" />

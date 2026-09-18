@@ -296,7 +296,7 @@ export const AppProvider = ({ children }) => {
         const { error: createErr } = await supabase.from('profiles').insert([{
           id: userId,
           email: sessionUser.email,
-          display_name: sessionUser.user_metadata?.full_name || sessionUser.email.split('@')[0],
+          display_name: sessionUser.user_metadata?.full_name || (() => { const prefix = (sessionUser.email || '').split('@')[0]; return (prefix && !/^[a-z0-9]{6,}$/i.test(prefix)) ? prefix : 'Student'; })(),
           avatar_url: sessionUser.user_metadata?.avatar_url
         }]);
         if (!createErr) setUser(prev => ({ ...prev, email: sessionUser.email }));
