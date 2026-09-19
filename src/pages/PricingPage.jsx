@@ -16,7 +16,7 @@ const PricingPage = ({ isModal = false, onClose }) => {
 
     // Safety check for user.plan
     const currentPlan = user?.plan || 'free';
-    const currentInterval = user?.billing_interval || null; // 'monthly' | 'yearly' | null
+    const currentInterval = user?.settings?.billing_interval || user?.billing_interval || null;
 
     const isIOS = Capacitor.getPlatform() === 'ios' && Capacitor.isNativePlatform();
 
@@ -108,7 +108,8 @@ const PricingPage = ({ isModal = false, onClose }) => {
                         await purchaseProduct(productId);
                         // Optimistic update: immediately reflect the new plan in UI
                         const newPlan = PRODUCT_TO_PLAN[productId] || plan;
-                        saveUser({ ...user, plan: newPlan, payment_provider: 'apple', subscription_status: 'active', billing_interval: billingCycle });
+                        const updatedSettings = { ...(user.settings || {}), billing_interval: billingCycle };
+                        saveUser({ ...user, plan: newPlan, payment_provider: 'apple', subscription_status: 'active', settings: updatedSettings });
                         addNotification(`🎉 Upgraded to ${newPlan.toUpperCase()}!`, 'success');
                         setProcessingPlan(null);
                         // Navigate back to the feature they were trying to access
