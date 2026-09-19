@@ -193,10 +193,26 @@ export const isIAPAvailable = () => {
 };
 
 /**
+ * Get the user's active subscription product ID from the IAP store
+ * Returns { productId, plan, interval } or null
+ */
+export const getActiveSubscription = () => {
+  if (!storeInstance || !storeReady) return null;
+
+  for (const id of Object.values(PRODUCTS)) {
+    const product = storeInstance.get(id, CdvPurchase.Platform.APPLE_APPSTORE);
+    if (product && product.owned) {
+      const interval = id.includes('monthly') ? 'monthly' : 'yearly';
+      return { productId: id, plan: PRODUCT_TO_PLAN[id], interval };
+    }
+  }
+  return null;
+};
+
+/**
  * Open iOS subscription management in Settings
  */
 export const openSubscriptionManagement = () => {
-  // This opens the iOS Settings > Subscriptions page
   if (Capacitor.getPlatform() === 'ios') {
     window.open('https://apps.apple.com/account/subscriptions', '_blank');
   }

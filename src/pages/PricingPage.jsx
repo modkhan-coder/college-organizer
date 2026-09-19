@@ -5,7 +5,7 @@ import { Check, X, CreditCard, Star, Zap, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
-import { isIAPAvailable, purchaseProduct, getProductPrice, restorePurchases, PRODUCTS, PRODUCT_TO_PLAN } from '../utils/iapService';
+import { isIAPAvailable, purchaseProduct, getProductPrice, restorePurchases, getActiveSubscription, PRODUCTS, PRODUCT_TO_PLAN } from '../utils/iapService';
 
 const PricingPage = ({ isModal = false, onClose }) => {
     const { user, saveUser, addNotification } = useApp();
@@ -16,9 +16,12 @@ const PricingPage = ({ isModal = false, onClose }) => {
 
     // Safety check for user.plan
     const currentPlan = user?.plan || 'free';
-    const currentInterval = user?.settings?.billing_interval || user?.billing_interval || null;
 
     const isIOS = Capacitor.getPlatform() === 'ios' && Capacitor.isNativePlatform();
+
+    // Detect active subscription interval from IAP store (Apple's source of truth)
+    const activeSub = isIOS ? getActiveSubscription() : null;
+    const currentInterval = activeSub?.interval || user?.settings?.billing_interval || null;
 
     const [applePrices, setApplePrices] = useState({
         proMonthly: null,
@@ -368,38 +371,14 @@ const PricingPage = ({ isModal = false, onClose }) => {
                     </p>
                     <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Advanced tools to forecast and improve grades.</p>
 
-                    {currentPlan === 'pro' ? (
+                    {currentPlan === 'pro' && currentInterval === billingCycle ? (
+                        /* Exact match: same plan, same billing cycle */
                         <>
-                            <div style={{
-                                width: '100%',
-                                marginBottom: '12px',
-                                padding: '12px',
-                                borderRadius: '12px',
-                                background: 'var(--success)',
-                                color: 'white',
-                                fontWeight: '700',
-                                textAlign: 'center',
-                                fontSize: '1rem'
-                            }}>
+                            <div style={{ width: '100%', marginBottom: '12px', padding: '12px', borderRadius: '12px', background: 'var(--success)', color: 'white', fontWeight: '700', textAlign: 'center', fontSize: '1rem' }}>
                                 ✓ Your Current Plan
                             </div>
-                            <button
-                                className="btn"
-                                style={{
-                                    width: '100%',
-                                    marginBottom: '24px',
-                                    background: 'var(--bg-surface)',
-                                    border: '1px solid var(--border)',
-                                    color: 'var(--text-secondary)',
-                                    fontWeight: '600'
-                                }}
-                                onClick={() => {
-                                    if (isIOS) {
-                                        window.open('https://apps.apple.com/account/subscriptions', '_blank');
-                                    } else {
-                                        handleManageBilling();
-                                    }
-                                }}
+                            <button className="btn" style={{ width: '100%', marginBottom: '24px', background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontWeight: '600' }}
+                                onClick={() => isIOS ? window.open('https://apps.apple.com/account/subscriptions', '_blank') : handleManageBilling()}
                             >
                                 Manage Subscription
                             </button>
@@ -410,14 +389,16 @@ const PricingPage = ({ isModal = false, onClose }) => {
                             style={{ width: '100%', marginBottom: '24px', background: 'var(--accent)', color: 'white' }}
                             disabled={!!processingPlan}
                             onClick={() => {
-                                if (!user) {
-                                    navigate('/login');
+                                if (!user) { navigate('/login'); return; }
+                                if (currentPlan === 'pro') {
+                                    // Same plan, different cycle — go to Apple subscription management
+                                    isIOS ? window.open('https://apps.apple.com/account/subscriptions', '_blank') : handleManageBilling();
                                     return;
                                 }
                                 handleUpgrade('pro');
                             }}
                         >
-                            {!user ? (isIOS ? 'Subscribe' : 'Get Started') : processingPlan === 'pro' ? 'Processing...' : (isIOS ? `Subscribe to Pro (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})` : `Upgrade to Pro (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`)}
+                            {!user ? (isIOS ? 'Subscribe' : 'Get Started') : processingPlan === 'pro' ? 'Processing...' : currentPlan === 'pro' ? `Switch to ${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'}` : (isIOS ? `Subscribe to Pro (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})` : `Upgrade to Pro (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`)}
                         </button>
                     )}
 
@@ -450,38 +431,14 @@ const PricingPage = ({ isModal = false, onClose }) => {
                     </p>
                     <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Let AI build your perfect study schedule.</p>
 
-                    {currentPlan === 'premium' ? (
+                    {currentPlan === 'premium' && currentInterval === billingCycle ? (
+                        /* Exact match: same plan, same billing cycle */
                         <>
-                            <div style={{
-                                width: '100%',
-                                marginBottom: '12px',
-                                padding: '12px',
-                                borderRadius: '12px',
-                                background: 'var(--success)',
-                                color: 'white',
-                                fontWeight: '700',
-                                textAlign: 'center',
-                                fontSize: '1rem'
-                            }}>
+                            <div style={{ width: '100%', marginBottom: '12px', padding: '12px', borderRadius: '12px', background: 'var(--success)', color: 'white', fontWeight: '700', textAlign: 'center', fontSize: '1rem' }}>
                                 ✓ Your Current Plan
                             </div>
-                            <button
-                                className="btn"
-                                style={{
-                                    width: '100%',
-                                    marginBottom: '24px',
-                                    background: 'var(--bg-surface)',
-                                    border: '1px solid var(--border)',
-                                    color: 'var(--text-secondary)',
-                                    fontWeight: '600'
-                                }}
-                                onClick={() => {
-                                    if (isIOS) {
-                                        window.open('https://apps.apple.com/account/subscriptions', '_blank');
-                                    } else {
-                                        handleManageBilling();
-                                    }
-                                }}
+                            <button className="btn" style={{ width: '100%', marginBottom: '24px', background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontWeight: '600' }}
+                                onClick={() => isIOS ? window.open('https://apps.apple.com/account/subscriptions', '_blank') : handleManageBilling()}
                             >
                                 Manage Subscription
                             </button>
@@ -492,14 +449,16 @@ const PricingPage = ({ isModal = false, onClose }) => {
                             style={{ width: '100%', marginBottom: '24px', borderColor: 'var(--warning)', color: 'var(--warning)' }}
                             disabled={!!processingPlan}
                             onClick={() => {
-                                if (!user) {
-                                    navigate('/login');
+                                if (!user) { navigate('/login'); return; }
+                                if (currentPlan === 'premium') {
+                                    // Same plan, different cycle — go to Apple subscription management
+                                    isIOS ? window.open('https://apps.apple.com/account/subscriptions', '_blank') : handleManageBilling();
                                     return;
                                 }
                                 handleUpgrade('premium');
                             }}
                         >
-                            {!user ? (isIOS ? 'Subscribe' : 'Get Started') : processingPlan === 'premium' ? 'Processing...' : (isIOS ? `Subscribe to Premium (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})` : `Get Premium (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`)}
+                            {!user ? (isIOS ? 'Subscribe' : 'Get Started') : processingPlan === 'premium' ? 'Processing...' : currentPlan === 'premium' ? `Switch to ${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'}` : (isIOS ? `Subscribe to Premium (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})` : `Get Premium (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`)}
                         </button>
                     )}
 
