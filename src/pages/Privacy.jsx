@@ -1,12 +1,43 @@
-import { Shield, Lock, Eye, Database, Server, Share2, Globe, ExternalLink, Trash2, Mail } from 'lucide-react';
+import { Shield, Lock, Eye, Database, Server, Share2, Globe, ExternalLink, Trash2, Mail, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const Privacy = () => {
+    const navigate = useNavigate();
+
     return (
-        <div style={{ maxWidth: '800px', margin: '0 auto', paddingBottom: '40px' }}>
-            <h1 className="page-title">Privacy Policy</h1>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                <strong>Last Updated:</strong> August 25, 2026
-            </p>
+        <div style={{ maxWidth: '800px', margin: '0 auto', paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)', paddingBottom: '40px', paddingLeft: '16px', paddingRight: '16px' }}>
+            {/* Header with back button */}
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                marginBottom: '24px',
+                paddingBottom: '16px',
+                borderBottom: '1px solid var(--border)'
+            }}>
+                <button
+                    onClick={() => navigate(-1)}
+                    style={{
+                        background: 'var(--bg-surface)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '10px',
+                        padding: '10px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--text-main)'
+                    }}
+                >
+                    <ArrowLeft size={20} />
+                </button>
+                <div>
+                    <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '800' }}>Privacy Policy</h1>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        Last Updated: August 25, 2026
+                    </p>
+                </div>
+            </div>
             <p style={{ fontSize: '1.1rem', color: 'var(--text-secondary)', marginBottom: '40px' }}>
                 College Organizer ("we", "us", or "our") is committed to protecting your privacy. 
                 This Privacy Policy explains what data we collect, how we use it, and your rights regarding your personal information.
