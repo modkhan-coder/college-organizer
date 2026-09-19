@@ -18,8 +18,18 @@ const Onboarding = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (!formData.school || !formData.major) {
-            addNotification('Please fill in your School and Major to continue.', 'error');
+        if (!formData.name || formData.name.trim().length < 2) {
+            addNotification('Please enter your full name.', 'error');
+            return;
+        }
+
+        if (!formData.school || formData.school.trim().length < 3) {
+            addNotification('Please enter your full school name (e.g. Stanford University).', 'error');
+            return;
+        }
+
+        if (!formData.major || formData.major.trim().length < 3) {
+            addNotification('Please enter your full major name (e.g. Computer Science).', 'error');
             return;
         }
 
