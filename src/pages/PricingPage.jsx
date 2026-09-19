@@ -368,29 +368,58 @@ const PricingPage = ({ isModal = false, onClose }) => {
                     </p>
                     <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Advanced tools to forecast and improve grades.</p>
 
-                    <button
-                        className="btn btn-primary"
-                        style={{ width: '100%', marginBottom: '24px', background: (currentPlan === 'pro' && (!currentInterval || currentInterval === billingCycle)) ? 'var(--success)' : 'var(--accent)', color: 'white' }}
-                        disabled={(currentPlan === 'pro' && (!currentInterval || currentInterval === billingCycle)) || !!processingPlan}
-                        onClick={() => {
-                            if (!user) {
-                                navigate('/login');
-                                return;
-                            }
-                            if (currentPlan === 'pro') {
-                                // Same plan, different cycle — open subscription management to switch
-                                if (isIOS) {
-                                    window.open('https://apps.apple.com/account/subscriptions', '_blank');
-                                } else {
-                                    handleManageBilling();
+                    {currentPlan === 'pro' ? (
+                        <>
+                            <div style={{
+                                width: '100%',
+                                marginBottom: '12px',
+                                padding: '12px',
+                                borderRadius: '12px',
+                                background: 'var(--success)',
+                                color: 'white',
+                                fontWeight: '700',
+                                textAlign: 'center',
+                                fontSize: '1rem'
+                            }}>
+                                ✓ Your Current Plan
+                            </div>
+                            <button
+                                className="btn"
+                                style={{
+                                    width: '100%',
+                                    marginBottom: '24px',
+                                    background: 'var(--bg-surface)',
+                                    border: '1px solid var(--border)',
+                                    color: 'var(--text-secondary)',
+                                    fontWeight: '600'
+                                }}
+                                onClick={() => {
+                                    if (isIOS) {
+                                        window.open('https://apps.apple.com/account/subscriptions', '_blank');
+                                    } else {
+                                        handleManageBilling();
+                                    }
+                                }}
+                            >
+                                Manage Subscription
+                            </button>
+                        </>
+                    ) : (
+                        <button
+                            className="btn btn-primary"
+                            style={{ width: '100%', marginBottom: '24px', background: 'var(--accent)', color: 'white' }}
+                            disabled={!!processingPlan}
+                            onClick={() => {
+                                if (!user) {
+                                    navigate('/login');
+                                    return;
                                 }
-                                return;
-                            }
-                            handleUpgrade('pro');
-                        }}
-                    >
-                        {!user ? (isIOS ? 'Subscribe' : 'Get Started') : processingPlan === 'pro' ? 'Processing...' : currentPlan === 'pro' ? ((!currentInterval || currentInterval === billingCycle) ? 'Active Plan ✓' : `Switch to ${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'}`) : (isIOS ? `Subscribe to Pro (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})` : `Upgrade to Pro (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`)}
-                    </button>
+                                handleUpgrade('pro');
+                            }}
+                        >
+                            {!user ? (isIOS ? 'Subscribe' : 'Get Started') : processingPlan === 'pro' ? 'Processing...' : (isIOS ? `Subscribe to Pro (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})` : `Upgrade to Pro (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`)}
+                        </button>
+                    )}
 
                     <Feature included={true} text="Unlimited Courses" />
                     <Feature included={true} text="Unlimited Assignments" />
@@ -421,29 +450,58 @@ const PricingPage = ({ isModal = false, onClose }) => {
                     </p>
                     <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Let AI build your perfect study schedule.</p>
 
-                    <button
-                        className="btn btn-secondary"
-                        style={{ width: '100%', marginBottom: '24px', borderColor: (currentPlan === 'premium' && (!currentInterval || currentInterval === billingCycle)) ? 'var(--success)' : 'var(--warning)', color: (currentPlan === 'premium' && (!currentInterval || currentInterval === billingCycle)) ? 'var(--success)' : 'var(--warning)' }}
-                        disabled={(currentPlan === 'premium' && (!currentInterval || currentInterval === billingCycle)) || !!processingPlan}
-                        onClick={() => {
-                            if (!user) {
-                                navigate('/login');
-                                return;
-                            }
-                            if (currentPlan === 'premium') {
-                                // Same plan, different cycle — open subscription management to switch
-                                if (isIOS) {
-                                    window.open('https://apps.apple.com/account/subscriptions', '_blank');
-                                } else {
-                                    handleManageBilling();
+                    {currentPlan === 'premium' ? (
+                        <>
+                            <div style={{
+                                width: '100%',
+                                marginBottom: '12px',
+                                padding: '12px',
+                                borderRadius: '12px',
+                                background: 'var(--success)',
+                                color: 'white',
+                                fontWeight: '700',
+                                textAlign: 'center',
+                                fontSize: '1rem'
+                            }}>
+                                ✓ Your Current Plan
+                            </div>
+                            <button
+                                className="btn"
+                                style={{
+                                    width: '100%',
+                                    marginBottom: '24px',
+                                    background: 'var(--bg-surface)',
+                                    border: '1px solid var(--border)',
+                                    color: 'var(--text-secondary)',
+                                    fontWeight: '600'
+                                }}
+                                onClick={() => {
+                                    if (isIOS) {
+                                        window.open('https://apps.apple.com/account/subscriptions', '_blank');
+                                    } else {
+                                        handleManageBilling();
+                                    }
+                                }}
+                            >
+                                Manage Subscription
+                            </button>
+                        </>
+                    ) : (
+                        <button
+                            className="btn btn-secondary"
+                            style={{ width: '100%', marginBottom: '24px', borderColor: 'var(--warning)', color: 'var(--warning)' }}
+                            disabled={!!processingPlan}
+                            onClick={() => {
+                                if (!user) {
+                                    navigate('/login');
+                                    return;
                                 }
-                                return;
-                            }
-                            handleUpgrade('premium');
-                        }}
-                    >
-                        {!user ? (isIOS ? 'Subscribe' : 'Get Started') : processingPlan === 'premium' ? 'Processing...' : currentPlan === 'premium' ? ((!currentInterval || currentInterval === billingCycle) ? 'Active Plan ✓' : `Switch to ${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'}`) : (isIOS ? `Subscribe to Premium (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})` : `Get Premium (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`)}
-                    </button>
+                                handleUpgrade('premium');
+                            }}
+                        >
+                            {!user ? (isIOS ? 'Subscribe' : 'Get Started') : processingPlan === 'premium' ? 'Processing...' : (isIOS ? `Subscribe to Premium (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})` : `Get Premium (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`)}
+                        </button>
+                    )}
 
                     <Feature included={true} text="Everything in Pro" />
                     <Feature included={true} text="50 AI Credits/mo" />
