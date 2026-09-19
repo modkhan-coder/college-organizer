@@ -84,6 +84,11 @@ const Auth = () => {
                     throw new Error('No identity token received from Apple.');
                 }
 
+                // Capture Apple name (only provided on FIRST sign-in)
+                const givenName = result.response?.givenName || '';
+                const familyName = result.response?.familyName || '';
+                const appleName = [givenName, familyName].filter(Boolean).join(' ');
+
                 // Send the Apple identity token to Supabase
                 const { data, error } = await supabase.auth.signInWithIdToken({
                     provider: 'apple',
@@ -91,6 +96,22 @@ const Auth = () => {
                 });
 
                 if (error) throw error;
+
+                // If Apple provided a name, save it to auth metadata AND profile
+                if (appleName) {
+                    await supabase.auth.updateUser({
+                        data: { full_name: appleName }
+                    });
+
+                    // Also update the profile table directly
+                    if (data?.user?.id) {
+                        await supabase.from('profiles').update({
+                            name: appleName,
+                            display_name: appleName,
+                        }).eq('id', data.user.id);
+                    }
+                }
+
                 navigate('/');
             } else {
                 // Web fallback: use Supabase OAuth for Apple

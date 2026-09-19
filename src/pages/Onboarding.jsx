@@ -7,7 +7,7 @@ const Onboarding = () => {
     const { user, saveUser, addNotification } = useApp();
 
     const [formData, setFormData] = useState({
-        name: user?.name || '',
+        name: user?.name || user?.user_metadata?.full_name || '',
         school: user?.school || '',
         major: user?.major || '',
         gpaScale: user?.settings?.gpaScale || '4.0'

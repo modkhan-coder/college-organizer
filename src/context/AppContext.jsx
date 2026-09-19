@@ -275,7 +275,15 @@ export const AppProvider = ({ children }) => {
         }
         const mergedUser = {
           ...profRes.data,
-          name: profRes.data.name || profRes.data.display_name || sessionUser?.user_metadata?.full_name || '',
+          name: (() => {
+            const storedName = profRes.data.name || profRes.data.display_name || '';
+            const metaName = sessionUser?.user_metadata?.full_name || '';
+            // If stored name is empty or looks garbled (random alphanumeric), prefer Apple metadata
+            if (!storedName || /^[a-z0-9]{6,}$/i.test(storedName)) {
+              return metaName || storedName || 'Student';
+            }
+            return storedName;
+          })(),
           email: sessionUser?.email || profRes.data.email || '',
           settings: { ...(profRes.data.settings || {}) },
           gpaScale: profRes.data.settings?.gpaScale || profRes.data.gpa_scale || '4.0',
