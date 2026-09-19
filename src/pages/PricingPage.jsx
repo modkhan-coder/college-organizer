@@ -368,17 +368,25 @@ const PricingPage = ({ isModal = false, onClose }) => {
 
                     <button
                         className="btn btn-primary"
-                        style={{ width: '100%', marginBottom: '24px', background: currentPlan === 'pro' ? 'var(--bg-surface)' : 'var(--accent)', color: currentPlan === 'pro' ? 'var(--text-main)' : 'white' }}
-                        disabled={currentPlan === 'pro' || !!processingPlan}
+                        style={{ width: '100%', marginBottom: '24px', background: currentPlan === 'pro' ? 'var(--success)' : 'var(--accent)', color: 'white' }}
+                        disabled={!!processingPlan}
                         onClick={() => {
                             if (!user) {
                                 navigate('/login');
                                 return;
                             }
+                            if (currentPlan === 'pro') {
+                                if (isIOS) {
+                                    window.open('https://apps.apple.com/account/subscriptions', '_blank');
+                                } else {
+                                    handleManageBilling();
+                                }
+                                return;
+                            }
                             handleUpgrade('pro');
                         }}
                     >
-                        {!user ? (isIOS ? 'Subscribe' : 'Get Started') : processingPlan === 'pro' ? 'Processing...' : currentPlan === 'pro' ? 'Active Plan' : (isIOS ? `Subscribe to Pro (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})` : `Upgrade to Pro (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`)}
+                        {!user ? (isIOS ? 'Subscribe' : 'Get Started') : processingPlan === 'pro' ? 'Processing...' : currentPlan === 'pro' ? 'Active Plan ✓ — Manage' : (isIOS ? `Subscribe to Pro (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})` : `Upgrade to Pro (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`)}
                     </button>
 
                     <Feature included={true} text="Unlimited Courses" />
@@ -412,17 +420,26 @@ const PricingPage = ({ isModal = false, onClose }) => {
 
                     <button
                         className="btn btn-secondary"
-                        style={{ width: '100%', marginBottom: '24px', borderColor: 'var(--warning)', color: 'var(--warning)' }}
-                        disabled={currentPlan === 'premium' || !!processingPlan}
+                        style={{ width: '100%', marginBottom: '24px', borderColor: currentPlan === 'premium' ? 'var(--success)' : 'var(--warning)', color: currentPlan === 'premium' ? 'var(--success)' : 'var(--warning)' }}
+                        disabled={!!processingPlan}
                         onClick={() => {
                             if (!user) {
                                 navigate('/login');
                                 return;
                             }
+                            if (currentPlan === 'premium') {
+                                // Already on premium — open subscription management
+                                if (isIOS) {
+                                    window.open('https://apps.apple.com/account/subscriptions', '_blank');
+                                } else {
+                                    handleManageBilling();
+                                }
+                                return;
+                            }
                             handleUpgrade('premium');
                         }}
                     >
-                        {!user ? (isIOS ? 'Subscribe' : 'Get Started') : processingPlan === 'premium' ? 'Processing...' : currentPlan === 'premium' ? 'Active Plan' : (isIOS ? `Subscribe to Premium (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})` : `Get Premium (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`)}
+                        {!user ? (isIOS ? 'Subscribe' : 'Get Started') : processingPlan === 'premium' ? 'Processing...' : currentPlan === 'premium' ? 'Active Plan ✓ — Manage' : (isIOS ? `Subscribe to Premium (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})` : `Get Premium (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`)}
                     </button>
 
                     <Feature included={true} text="Everything in Pro" />
