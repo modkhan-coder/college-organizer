@@ -16,6 +16,7 @@ const PricingPage = ({ isModal = false, onClose }) => {
 
     // Safety check for user.plan
     const currentPlan = user?.plan || 'free';
+    const currentInterval = user?.billing_interval || null; // 'monthly' | 'yearly' | null
 
     const isIOS = Capacitor.getPlatform() === 'ios' && Capacitor.isNativePlatform();
 
@@ -107,7 +108,7 @@ const PricingPage = ({ isModal = false, onClose }) => {
                         await purchaseProduct(productId);
                         // Optimistic update: immediately reflect the new plan in UI
                         const newPlan = PRODUCT_TO_PLAN[productId] || plan;
-                        saveUser({ ...user, plan: newPlan, payment_provider: 'apple', subscription_status: 'active' });
+                        saveUser({ ...user, plan: newPlan, payment_provider: 'apple', subscription_status: 'active', billing_interval: billingCycle });
                         addNotification(`🎉 Upgraded to ${newPlan.toUpperCase()}!`, 'success');
                         setProcessingPlan(null);
                         // Navigate back to the feature they were trying to access
@@ -368,14 +369,15 @@ const PricingPage = ({ isModal = false, onClose }) => {
 
                     <button
                         className="btn btn-primary"
-                        style={{ width: '100%', marginBottom: '24px', background: currentPlan === 'pro' ? 'var(--success)' : 'var(--accent)', color: 'white' }}
-                        disabled={!!processingPlan}
+                        style={{ width: '100%', marginBottom: '24px', background: (currentPlan === 'pro' && (!currentInterval || currentInterval === billingCycle)) ? 'var(--success)' : 'var(--accent)', color: 'white' }}
+                        disabled={(currentPlan === 'pro' && (!currentInterval || currentInterval === billingCycle)) || !!processingPlan}
                         onClick={() => {
                             if (!user) {
                                 navigate('/login');
                                 return;
                             }
                             if (currentPlan === 'pro') {
+                                // Same plan, different cycle — open subscription management to switch
                                 if (isIOS) {
                                     window.open('https://apps.apple.com/account/subscriptions', '_blank');
                                 } else {
@@ -386,7 +388,7 @@ const PricingPage = ({ isModal = false, onClose }) => {
                             handleUpgrade('pro');
                         }}
                     >
-                        {!user ? (isIOS ? 'Subscribe' : 'Get Started') : processingPlan === 'pro' ? 'Processing...' : currentPlan === 'pro' ? 'Active Plan ✓ — Manage' : (isIOS ? `Subscribe to Pro (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})` : `Upgrade to Pro (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`)}
+                        {!user ? (isIOS ? 'Subscribe' : 'Get Started') : processingPlan === 'pro' ? 'Processing...' : currentPlan === 'pro' ? ((!currentInterval || currentInterval === billingCycle) ? 'Active Plan ✓' : `Switch to ${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'}`) : (isIOS ? `Subscribe to Pro (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})` : `Upgrade to Pro (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`)}
                     </button>
 
                     <Feature included={true} text="Unlimited Courses" />
@@ -420,15 +422,15 @@ const PricingPage = ({ isModal = false, onClose }) => {
 
                     <button
                         className="btn btn-secondary"
-                        style={{ width: '100%', marginBottom: '24px', borderColor: currentPlan === 'premium' ? 'var(--success)' : 'var(--warning)', color: currentPlan === 'premium' ? 'var(--success)' : 'var(--warning)' }}
-                        disabled={!!processingPlan}
+                        style={{ width: '100%', marginBottom: '24px', borderColor: (currentPlan === 'premium' && (!currentInterval || currentInterval === billingCycle)) ? 'var(--success)' : 'var(--warning)', color: (currentPlan === 'premium' && (!currentInterval || currentInterval === billingCycle)) ? 'var(--success)' : 'var(--warning)' }}
+                        disabled={(currentPlan === 'premium' && (!currentInterval || currentInterval === billingCycle)) || !!processingPlan}
                         onClick={() => {
                             if (!user) {
                                 navigate('/login');
                                 return;
                             }
                             if (currentPlan === 'premium') {
-                                // Already on premium — open subscription management
+                                // Same plan, different cycle — open subscription management to switch
                                 if (isIOS) {
                                     window.open('https://apps.apple.com/account/subscriptions', '_blank');
                                 } else {
@@ -439,7 +441,7 @@ const PricingPage = ({ isModal = false, onClose }) => {
                             handleUpgrade('premium');
                         }}
                     >
-                        {!user ? (isIOS ? 'Subscribe' : 'Get Started') : processingPlan === 'premium' ? 'Processing...' : currentPlan === 'premium' ? 'Active Plan ✓ — Manage' : (isIOS ? `Subscribe to Premium (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})` : `Get Premium (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`)}
+                        {!user ? (isIOS ? 'Subscribe' : 'Get Started') : processingPlan === 'premium' ? 'Processing...' : currentPlan === 'premium' ? ((!currentInterval || currentInterval === billingCycle) ? 'Active Plan ✓' : `Switch to ${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'}`) : (isIOS ? `Subscribe to Premium (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})` : `Get Premium (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`)}
                     </button>
 
                     <Feature included={true} text="Everything in Pro" />
