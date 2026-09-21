@@ -19,9 +19,11 @@ const PricingPage = ({ isModal = false, onClose }) => {
 
     const isIOS = Capacitor.getPlatform() === 'ios' && Capacitor.isNativePlatform();
 
-    // Detect active subscription interval from IAP store (Apple's source of truth)
+    // Detect active subscription billing interval
+    // Priority: localStorage (always reliable) → settings (database) → IAP store → default 'monthly' for active plans
     const activeSub = isIOS ? getActiveSubscription() : null;
-    const currentInterval = activeSub?.interval || user?.settings?.billing_interval || null;
+    const storedInterval = localStorage.getItem('billing_interval') || user?.settings?.billing_interval || activeSub?.interval || null;
+    const currentInterval = storedInterval || (currentPlan !== 'free' ? 'monthly' : null);
 
     const [applePrices, setApplePrices] = useState({
         proMonthly: null,
@@ -111,6 +113,8 @@ const PricingPage = ({ isModal = false, onClose }) => {
                         await purchaseProduct(productId);
                         // Optimistic update: immediately reflect the new plan in UI
                         const newPlan = PRODUCT_TO_PLAN[productId] || plan;
+                        // Save billing interval to localStorage (always reliable)
+                        localStorage.setItem('billing_interval', billingCycle);
                         const updatedSettings = { ...(user.settings || {}), billing_interval: billingCycle };
                         saveUser({ ...user, plan: newPlan, payment_provider: 'apple', subscription_status: 'active', settings: updatedSettings });
                         addNotification(`🎉 Upgraded to ${newPlan.toUpperCase()}!`, 'success');
