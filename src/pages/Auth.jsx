@@ -21,12 +21,24 @@ const Auth = () => {
 
         try {
             if (mode === 'signup') {
+                const redirectUrl = window.location.hostname === 'localhost'
+                    ? window.location.origin
+                    : 'https://www.collegeorganizer.org';
+
                 const { error, data } = await supabase.auth.signUp({
                     email,
                     password,
+                    options: {
+                        emailRedirectTo: redirectUrl
+                    }
                 });
                 if (error) throw error;
-                setMessage({ type: 'success', text: 'Check your email for the verification link!' });
+
+                if (data?.session) {
+                    navigate('/');
+                } else {
+                    setMessage({ type: 'success', text: 'Verification email sent! If it went to Spam, click "Report not spam" in your email to enable the link.' });
+                }
             } else {
                 const { error, data } = await supabase.auth.signInWithPassword({
                     email,
