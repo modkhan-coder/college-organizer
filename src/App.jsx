@@ -25,6 +25,7 @@ import Help from './pages/Help';
 import Feedback from './pages/Feedback';
 import Admin from './pages/Admin';
 import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
 import PricingPage from './pages/PricingPage';
 import StudyStudio from './pages/StudyStudio';
 import CourseHub from './pages/CourseHub';
@@ -69,6 +70,7 @@ function App() {
           <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Auth />} />
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
 
           {/* Protected Routes - WITH SIDEBAR/LAYOUT */}
           <Route path="/dashboard" element={<RequireAuth><Layout><Dashboard /></Layout></RequireAuth>} />

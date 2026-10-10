@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useApp } from '../context/AppContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 
 const Auth = () => {
@@ -282,6 +282,13 @@ const Auth = () => {
                             </button>
                         </>
                     )}
+                </div>
+
+                <div style={{ marginTop: '20px', textAlign: 'center', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                    By continuing, you agree to our{' '}
+                    <Link to="/terms" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>Terms of Use (EULA)</Link>
+                    {' '}and{' '}
+                    <Link to="/privacy" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>Privacy Policy</Link>.
                 </div>
             </div>
         </div>

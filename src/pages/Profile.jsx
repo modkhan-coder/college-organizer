@@ -562,20 +562,34 @@ const Profile = () => {
                                 style={{ transform: 'scale(1.2)', cursor: 'pointer' }}
                             />
                         </div>
-                        <Link
-                            to="/privacy"
-                            style={{
-                                color: 'var(--primary)',
-                                fontSize: '0.875rem',
-                                fontWeight: '600',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                marginTop: '8px'
-                            }}
-                        >
-                            View Privacy Policy &rarr;
-                        </Link>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                            <Link
+                                to="/privacy"
+                                style={{
+                                    color: 'var(--primary)',
+                                    fontSize: '0.875rem',
+                                    fontWeight: '600',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                }}
+                            >
+                                View Privacy Policy &rarr;
+                            </Link>
+                            <Link
+                                to="/terms"
+                                style={{
+                                    color: 'var(--primary)',
+                                    fontSize: '0.875rem',
+                                    fontWeight: '600',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                }}
+                            >
+                                View Terms of Use (EULA) &rarr;
+                            </Link>
+                        </div>
                     </div>
                 </div>
 

@@ -81,6 +81,7 @@ const LandingPage = () => {
                 <p>&copy; {new Date().getFullYear()} College Organizer. All rights reserved.</p>
                 <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'center', gap: '20px' }}>
                     <Link to="/privacy" style={{ color: 'var(--text-secondary)' }}>Privacy Policy</Link>
+                    <Link to="/terms" style={{ color: 'var(--text-secondary)' }}>Terms of Use (EULA)</Link>
                     <Link to="/help" style={{ color: 'var(--text-secondary)' }}>Support</Link>
                 </div>
             </footer>

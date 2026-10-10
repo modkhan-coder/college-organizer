@@ -537,15 +537,8 @@ const PricingPage = ({ isModal = false, onClose }) => {
                         Privacy Policy
                     </a>
                     <a
-                        href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
-                        onClick={(e) => {
-                            if (Capacitor.isNativePlatform()) {
-                                e.preventDefault();
-                                Browser.open({ url: 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/' });
-                            }
-                        }}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        href="/terms"
+                        onClick={(e) => { e.preventDefault(); navigate('/terms'); if (onClose) onClose(); }}
                         style={{ color: 'var(--primary)', textDecoration: 'underline' }}
                     >
                         Terms of Use (EULA)
